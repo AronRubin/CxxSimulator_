@@ -1,0 +1,39 @@
+---
+Language:        Cpp
+BasedOnStyle: Chromium
+AccessModifierOffset: -2
+AlignAfterOpenBracket: DontAlign
+AlignTrailingComments: false
+AlwaysBreakAfterDefinitionReturnType: false
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterClass:      false
+  AfterControlStatement: false
+  AfterEnum:       false
+  AfterFunction:   false
+  AfterNamespace:  false
+  AfterObjCDeclaration: false
+  AfterStruct:     false
+  AfterUnion:      false
+  AfterExternBlock: false
+  BeforeCatch:     false
+  BeforeElse:      false
+  IndentBraces:    false
+  SplitEmptyFunction: true
+  SplitEmptyRecord: true
+  SplitEmptyNamespace: true
+BreakBeforeTernaryOperators: false
+BreakConstructorInitializers: AfterColon
+BreakStringLiterals: false
+ColumnLimit: 110
+IndentCaseLabels: false
+MacroBlockBegin: '^G_BEGIN_DECLS'
+MacroBlockEnd: '^G_END_DECLS'
+PointerAlignment: Right
+SpacesInParentheses: true
+Standard: Cpp11
+TabWidth:        8
+UseTab:          Never
+AllowAllParametersOfDeclarationOnNextLine: true
+ContinuationIndentWidth: 4
+...
