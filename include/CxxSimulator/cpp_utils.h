@@ -32,7 +32,9 @@ public:
     }
   }
 
-  void dismiss() noexcept { m_is_valid = false; }
+  void dismiss() noexcept {
+    m_is_valid = false;
+  }
 
 public:
   scope_guard() = delete;
@@ -72,7 +74,7 @@ inline constexpr detail::scope_guard<Callable> guard_scope( Callable &&callable 
  * @tparam S std::error_code
  */
 template <class S = std::error_code>
-struct VResult {
+struct void_result {
   using value_type = void;
   using error_type = S;
 
@@ -81,12 +83,12 @@ struct VResult {
    * @param err
    * @param msg
    */
-  VResult( const error_type &err, const std::string &msg ) noexcept :
+  void_result( const error_type &err, const std::string &msg ) noexcept :
       is_success( false ),
       err( err ),
       msg( msg ) {}
 
-  VResult() noexcept = default;
+  void_result() noexcept = default;
 
   const bool is_success = true;
   const error_type err;
@@ -100,24 +102,25 @@ struct VResult {
  */
 template <class R,
     class S = std::error_code,
-    typename = typename std::enable_if<std::is_constructible_v<R>>::type>
-struct Result : public VResult<S> {
+    typename = typename std::enable_if<
+      std::is_move_constructible_v<R>>::type>
+struct value_result : public void_result<S> {
   using value_type = R;
   using error_type = S;
 
-  static_assert( std::is_constructible_v<value_type> );
+  static_assert( std::is_move_constructible_v<value_type> );
 
-  Result() = delete;
+  value_result() = delete;
 
-  Result( const error_type &err, const std::string &msg ) noexcept : VResult<error_type>( err, msg ) {}
+  value_result( const error_type &err, const std::string &msg ) noexcept : void_result<error_type>( err, msg ) {}
 
-  explicit Result(
+  explicit value_result(
       std::enable_if_t<std::is_copy_constructible_v<value_type>, const value_type &> value ) noexcept :
       value{value} {
     static_assert( std::is_copy_constructible_v<value_type> );
   }
 
-  explicit Result( value_type &&value ) noexcept : value{std::forward<value_type>( value )} {}
+  explicit value_result( value_type &&value ) noexcept : value{ std::forward<value_type>( value ) } {}
 
   const value_type value;
 };
