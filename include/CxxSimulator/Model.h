@@ -50,7 +50,7 @@ public:
   Model &operator=( Model &&other ) = default;
 
   // instance factory
-  virtual acpp::Result<Instance> instance( const std::string &name ) = 0;
+  virtual acpp::value_result<Instance> instance( const std::string &name ) = 0;
   
   // pad spec factory
   void addPadSpec( const PadSpec &spec );

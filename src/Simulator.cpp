@@ -8,9 +8,9 @@ using json = nlohmann::json;
 
 namespace sim {
 
-class Simulator::Impl {
+class Simulation::Impl {};
 
-};
+class Simulator::Impl {};
 
 Simulator::Simulator() : impl( new Impl ) {
 }
@@ -20,7 +20,7 @@ Simulator &Simulator::getInstance() {
   return instance;
 }
 
-acpp::VResult<> Simulator::loadTopology( const std::string &topo_json ) {
+acpp::value_result<Simulation> Simulator::loadTopology( const std::string &topo_json ) {
   return { {}, "unimplemented" };
 }
 
