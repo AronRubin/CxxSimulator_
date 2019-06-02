@@ -1,5 +1,8 @@
 #pragma once
 
+#ifndef CPP_UTILS_H_INCLUDED
+#define CPP_UTILS_H_INCLUDED
+
 #include <functional>
 #include <future>
 #include <system_error>
@@ -44,7 +47,7 @@ public:
 
   static scope_guard make( callable_type &&callable ) noexcept(
       std::is_nothrow_constructible<callable_type, callable_type &&>::value ) {
-    return scope_guard<callable_type>{std::forward<callable_type>( callable )};
+    return {std::forward<callable_type>( callable )};
   }
 
 private:
@@ -79,7 +82,7 @@ struct void_result {
   using error_type = S;
 
   /**
-   * @brief Construct a new VResult object in error condition
+   * @brief Construct a new void_result object in error condition
    * @param err
    * @param msg
    */
@@ -96,14 +99,13 @@ struct void_result {
 };
 
 /**
- * @brief Void result - convenient alternative to exception
- *
+ * @brief value holding result - convenient alternative to exception
+ * @tparam R the type of value to hold
  * @tparam S std::error_code
  */
 template <class R,
     class S = std::error_code,
-    typename = typename std::enable_if<
-      std::is_move_constructible_v<R>>::type>
+    typename = typename std::enable_if<std::is_move_constructible_v<R>>::type>
 struct value_result : public void_result<S> {
   using value_type = R;
   using error_type = S;
@@ -258,6 +260,17 @@ using is_unsigned_scoped_enum = std::integral_constant<bool,
       std::is_unsigned<typename std::underlying_type<EnumT>::type>::value &&
       !std::is_convertible<EnumT, typename std::underlying_type<EnumT>::type>::value>;
 
+using unstructured_value = std::variant<
+    std::monostate,
+    intmax_t,
+    uintmax_t,
+    double,
+    std::string,
+    std::vector<intmax_t>,
+    std::vector<uintmax_t>,
+    std::vector<double>,
+    std::vector<std::string>>;
+
 }  // namespace acpp
 
 /**
@@ -270,9 +283,4 @@ constexpr typename std::enable_if<acpp::is_unsigned_scoped_enum<EnumT>::value, a
   return first | acpp::flagset<EnumT>{rhs};
 }
 
-inline void fstest() {
-  enum class Flags : uint32_t { ONE, TWO, THREE, COUNT__ };
-  //acpp::flagset<Flags> fs( Flags::ONE | Flags::TWO );
-  acpp::flagset<Flags> fs2( Flags::ONE, Flags::TWO );
-  //std::cout << fs2 << std::endl;
-}
+#endif // CPP_UTILS_H_INCLUDED

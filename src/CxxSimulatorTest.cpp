@@ -46,3 +46,10 @@ SCENARIO( "Simulator executing", "[simulator]" ) {
     }
   }
 }
+
+TEST_CASE( "Flagset", "[metas]" ) {
+  enum class Flags : uint32_t { ONE, TWO, THREE, COUNT__ };
+  acpp::flagset<Flags> fs( Flags::ONE | Flags::TWO );
+  acpp::flagset<Flags> fs2( Flags::ONE, Flags::TWO );
+  // std::cout << fs2 << std::endl;
+}
