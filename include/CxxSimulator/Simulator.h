@@ -4,6 +4,9 @@
 
 #pragma once
 
+#ifndef SIMULATOR_H_INCLUDED
+#define SIMULATOR_H_INCLUDED
+
 #include <string>
 #include <system_error>
 #include <optional>
@@ -89,3 +92,4 @@ private:
 
 } // namespace sim
 
+#endif // SIMULATOR_H_INCLUDED
