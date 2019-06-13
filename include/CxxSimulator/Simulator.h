@@ -29,6 +29,10 @@ public:
   Simulation() = default;
   ~Simulation() = default;
 
+  // sure you can _copy_, but _should_ you?
+  Simulation( const Simulation &other );
+  Simulation( Simulation &&other );
+  
   acpp::value_result<std::reference_wrapper<Instance>> emplace( Instance &&instance );
   acpp::value_result<std::reference_wrapper<Instance>> emplace( const Model &stats, const std::string &name );
   std::optional<std::reference_wrapper<Instance>> getInstance( const std::string &name );
@@ -37,11 +41,6 @@ public:
   acpp::void_result<> setParameter( const std::string &name, const std::string &value );
   std::optional<std::string> getParameter( const std::string &name );
 
-  // sure you can _copy_, but _should_ you
-  Simulation( const Simulation &other );
-  Simulation( Simulation &&other );
-
-  
 private:
   friend class Simulator;
 

@@ -8,9 +8,13 @@ using json = nlohmann::json;
 
 namespace sim {
 
-class Simulation::Impl {};
+class Simulation::Impl {
 
-class Simulator::Impl {};
+};
+
+class Simulator::Impl {
+  
+};
 
 Simulator::Simulator() : impl( new Impl ) {
 }

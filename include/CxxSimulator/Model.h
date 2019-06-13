@@ -13,22 +13,15 @@
 
 namespace sim {
 
-class PadSpec {
-public:
+/**
+ * POD to specify a model's pad
+ */
+struct PadSpec {
   enum class Flag : uint32_t { CAN_INPUT, CAN_OUTPUT, IS_TEMPLATE, BY_REQUEST, COUNT__ };
 
-  PadSpec() noexcept = default;
-  PadSpec( const std::string &name,
-      const acpp::flagset<Flag> &flags = { Flag::CAN_INPUT, Flag::CAN_OUTPUT },
-      const std::string properties_json = {} ) {}
   const std::string name;
-  const acpp::flagset<Flag> flags;
+  const acpp::flagset<Flag> flags = { Flag::CAN_INPUT, Flag::CAN_OUTPUT };
   const std::unordered_map<std::string, acpp::unstructured_value> properties;
-};
-
-class Activity {
-  //ActivitySpec  
-  
 };
 
 class ActivitySpec {
@@ -36,18 +29,40 @@ public:
   ActivitySpec( const std::string &name, const std::string &triggering_event ) :
       m_name( name ),
       m_triggering_event( triggering_event ) {}
-  std::string getName() const { return m_name; }
+  std::string name() const { return m_name; }
   void setName( const std::string &name ) { m_name = name; }
+
+private:
   std::string m_name;
   std::string m_triggering_event;
-  std::function<void()> worker;
+  std::function<void()> m_worker;
+};
+
+class Activity {
+public:
+  ActivitySpec spec();
+  
+private:
+  class Impl;
+  std::unique_ptr<Impl> impl;
 };
 
 class Instance {
 public:
   Instance() = default;
 
+  std::string name();
+  std::shared_ptr<Model> model();
+  acpp::unstructured_value parameter( const std::string &name );
+  std::shared_ptr<Activity> activity( const std::string &name );
+
+  acpp::void_result<> setParameter( const std::string &name, const acpp::unstructured_value &value );
+
   int idx = 0;
+
+private:
+  class Impl;
+  std::unique_ptr<Impl> impl;
 };
 
 /**
@@ -66,8 +81,8 @@ public:
   // pad spec factory
   void addPadSpec( const PadSpec &spec );
 
-  // pad spec factory
-  void addActivitySpec( const PadSpec &spec );
+  // activity spec factory
+  void addActivitySpec( const ActivitySpec &spec );
 
 private:
   class Impl;
