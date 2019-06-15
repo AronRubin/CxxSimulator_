@@ -143,23 +143,17 @@ struct flagset {
   flagset( flagset &&other ) noexcept = default;
   flagset &operator=( flagset &&other ) noexcept = default;
 
-  constexpr flagset( const flag_type &flag ) noexcept : bitset{ static_cast<base_type>( flag ) } {
+  constexpr flagset( const flag_type &flag ) noexcept : bitset{ (1 << static_cast<base_type>( flag )) } {
   }
 
   template <typename... Flags,
       typename = typename std::enable_if_t<std::conjunction_v<std::is_same<Flags, flag_type>...> > >
   constexpr flagset( const flag_type &flag1, const Flags&... flags ) noexcept :
-      bitset{ static_cast<base_type>( flag1 ) | (static_cast<base_type>( flags ) | ...) } {
+      bitset{ (unsigned long long)
+              ((1 << static_cast<base_type>( flag1 )) |
+               ((1 << static_cast<base_type>( flags )) | ...)) } {
   }
 
-  flagset &operator|=( const flag_type &flag ) {
-    bitset |= static_cast<base_type>( flag );
-    return *this;
-  }
-  flagset &operator&=( const flag_type &flag ) {
-    bitset &= static_cast<base_type>( flag );
-    return *this;
-  }
   flagset &operator|=( const flagset &other ) {
     bitset |= other.bitset;
     return *this;
@@ -169,25 +163,19 @@ struct flagset {
     return *this;
   }
   flagset &operator=( const flag_type &flag ) {
-    bitset = static_cast<base_type>( flag );
+    bitset{ (1 << static_cast<base_type>( flag )) };
     return *this;
   }
   flagset &operator+=( const flag_type &flag ) {
-    bitset += static_cast<base_type>( flag );
+    bitset.set( static_cast<base_type>( flag ), true );
     return *this;
   }
   flagset &operator-=( const flag_type &flag ) {
-    bitset -= static_cast<base_type>( flag );
+    bitset.set( static_cast<base_type>( flag ), false );
     return *this;
-  }
-  flagset operator&( const flag_type &flag ) const noexcept {
-    return flagset { bitset & static_cast<base_type>( flag ) };
   }
   flagset operator&( const flagset &other ) const noexcept {
     return flagset { bitset & other.bitset };
-  }
-  flagset operator|( const flag_type &flag ) const noexcept {
-    return flagset { bitset | static_cast<base_type>( flag ) };
   }
   flagset operator|( const flagset &other ) const noexcept {
     return flagset { bitset | other.bitset };
