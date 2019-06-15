@@ -1,10 +1,18 @@
+
+#ifdef USE_CATCH2
 // Let Catch provide main():
 #define CATCH_CONFIG_MAIN
 
 #include <catch2/catch.hpp>
+#else // USE_CATCH2
+#include <gtest/gtest.h>
+#include <gmock/gmock.h>
+
+#endif // USE_CATCH2
 
 #include <CxxSimulator/Simulator.h>
 
+#if defined(USE_CATCH2)
 SCENARIO( "Simulator executing", "[simulator]" ) {
   GIVEN( "A simulator loaded with a simple topology" ) {
     std::vector<int> v( 5 );
@@ -46,10 +54,12 @@ SCENARIO( "Simulator executing", "[simulator]" ) {
     }
   }
 }
+#endif // CATCH2
 
-TEST_CASE( "Flagset", "[metas]" ) {
+TEST( flagset, metas ) {
   enum class Flags : uint32_t { ONE, TWO, THREE, COUNT__ };
   acpp::flagset<Flags> fs( Flags::ONE | Flags::TWO );
   acpp::flagset<Flags> fs2( Flags::ONE, Flags::TWO );
   // std::cout << fs2 << std::endl;
 }
+

@@ -2,8 +2,6 @@
  * Simulator.h
  */
 
-#pragma once
-
 #ifndef SIMULATOR_H_INCLUDED
 #define SIMULATOR_H_INCLUDED
 

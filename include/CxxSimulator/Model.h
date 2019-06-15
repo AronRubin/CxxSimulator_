@@ -2,7 +2,8 @@
  * Model.h
  */
 
-#pragma once
+#ifndef MODEL_H_INCLUDED
+#define MODEL_H_INCLUDED
 
 #include <optional>
 #include <string>
@@ -13,15 +14,17 @@
 
 namespace sim {
 
+class Model;
+
 /**
  * POD to specify a model's pad
  */
 struct PadSpec {
   enum class Flag : uint32_t { CAN_INPUT, CAN_OUTPUT, IS_TEMPLATE, BY_REQUEST, COUNT__ };
 
-  const std::string name;
-  const acpp::flagset<Flag> flags = { Flag::CAN_INPUT, Flag::CAN_OUTPUT };
-  const std::unordered_map<std::string, acpp::unstructured_value> properties;
+  std::string name;
+  acpp::flagset<Flag> flags = { Flag::CAN_INPUT, Flag::CAN_OUTPUT };
+  std::unordered_map<std::string, acpp::unstructured_value> properties;
 };
 
 class ActivitySpec {
@@ -35,11 +38,13 @@ public:
 private:
   std::string m_name;
   std::string m_triggering_event;
-  std::function<void()> m_worker;
+  std::function<void()> m_function;
 };
 
-class Activity {
+class Activity : public std::enable_shared_from_this<Activity> {
 public:
+  Activity();
+  
   ActivitySpec spec();
   
 private:
@@ -47,9 +52,9 @@ private:
   std::unique_ptr<Impl> impl;
 };
 
-class Instance {
+class Instance : public std::enable_shared_from_this<Instance> {
 public:
-  Instance() = default;
+  Instance();
 
   std::string name();
   std::shared_ptr<Model> model();
@@ -57,8 +62,6 @@ public:
   std::shared_ptr<Activity> activity( const std::string &name );
 
   acpp::void_result<> setParameter( const std::string &name, const acpp::unstructured_value &value );
-
-  int idx = 0;
 
 private:
   class Impl;
@@ -68,7 +71,7 @@ private:
 /**
  * A model is an instance prototype and factory
  */
-class Model {
+class Model : public std::enable_shared_from_this<Model> {
 public:
   Model();
   ~Model();
@@ -90,3 +93,5 @@ private:
 };
 
 }  // namespace sim
+
+#endif // MODEL_H_INCLUDED
