@@ -18,13 +18,19 @@ public:
   std::string m_name;
   std::unordered_map<std::string, acpp::unstructured_value> m_parameters;
   std::unordered_map<std::string, ActivitySpec> m_activity_specs;
+  std::unordered_map<std::string, PadSpec> m_pad_specs;
 };
 
-Model::Model() : impl( new Impl ) {
+Model::Model( const std::string &name ) : impl( new Impl ) {
+  impl->m_name = name;
 }
+Model::~Model() = default;
 
 void Model::addPadSpec( const PadSpec &spec ) {
+  if (spec.name.empty()) {
 
+  }
+  impl->m_pad_specs[spec.name] = spec;
 }
 
 
@@ -36,7 +42,15 @@ public:
   std::unordered_map<std::string, std::shared_ptr<Activity>> m_activities;
 };
 
-Instance::Instance() : impl( new Impl ) {
+Instance::Instance( Simulator &sim, std::shared_ptr<Model> model, const std::string &name ) : impl( new Impl ) {
+  if (!model) {
+    throw "model not supplied";
+  }
+  if (name.empty()) {
+    throw "name not supplied";
+  }
+  impl->m_name = name;
+  impl->m_model = model;
 }
 
 class Activity::Impl {

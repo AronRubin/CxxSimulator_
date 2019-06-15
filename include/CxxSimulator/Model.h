@@ -14,6 +14,7 @@
 
 namespace sim {
 
+class Simulator;
 class Model;
 
 /**
@@ -29,9 +30,10 @@ struct PadSpec {
 
 class ActivitySpec {
 public:
-  ActivitySpec( const std::string &name, const std::string &triggering_event ) :
+  ActivitySpec( const std::string &name, const std::string &triggering_event, const std::function<void()> &function ) :
       m_name( name ),
-      m_triggering_event( triggering_event ) {}
+      m_triggering_event( triggering_event ),
+      m_function( function ) {}
   std::string name() const { return m_name; }
   void setName( const std::string &name ) { m_name = name; }
 
@@ -44,8 +46,8 @@ private:
 class Activity : public std::enable_shared_from_this<Activity> {
 public:
   Activity();
-  
-  ActivitySpec spec();
+
+  ActivitySpec spec() const;
   
 private:
   class Impl;
@@ -54,16 +56,19 @@ private:
 
 class Instance : public std::enable_shared_from_this<Instance> {
 public:
-  Instance();
+  std::string name() const;
+  std::shared_ptr<Model> model() const;
+  acpp::unstructured_value parameter( const std::string &name ) const;
+  std::shared_ptr<Activity> activity( const std::string &name ) const;
 
-  std::string name();
-  std::shared_ptr<Model> model();
-  acpp::unstructured_value parameter( const std::string &name );
-  std::shared_ptr<Activity> activity( const std::string &name );
-
+  std::shared_ptr<Activity> requestActivity( const std::string spec_name, const std::string &name );
   acpp::void_result<> setParameter( const std::string &name, const acpp::unstructured_value &value );
 
 private:
+  // only simulator can create an instance
+  friend class Simulator;
+  Instance( Simulator &sim, std::shared_ptr<Model> model, const std::string &name );
+
   class Impl;
   std::unique_ptr<Impl> impl;
 };
@@ -73,13 +78,13 @@ private:
  */
 class Model : public std::enable_shared_from_this<Model> {
 public:
-  Model();
+  Model( const std::string &name );
   ~Model();
   Model( Model &&other ) = default;
   Model &operator=( Model &&other ) = default;
 
-  // instance factory
-  virtual acpp::value_result<Instance> instance( const std::string &name ) = 0;
+  // entry point for the model
+  virtual ActivitySpec startActivity() = 0;
   
   // pad spec factory
   void addPadSpec( const PadSpec &spec );

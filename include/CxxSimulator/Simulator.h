@@ -58,6 +58,8 @@ private:
 public:
   static Simulator &getInstance();
 
+  void reset();
+
   // design choice: no throw
   
   /**
@@ -74,8 +76,7 @@ public:
    * 
    * @param model a model
    */
-  void addModel( const Model &model );
-  void takeModel( Model &&model );
+  void addModel( std::shared_ptr<Model> model );
 
   // mark as immoveable
   Simulator( Simulator && ) = delete;

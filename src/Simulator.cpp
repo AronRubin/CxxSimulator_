@@ -19,6 +19,10 @@ class Simulator::Impl {
 Simulator::Simulator() : impl( new Impl ) {
 }
 
+void Simulator::reset() {
+  impl = std::make_unique<Impl>();
+}
+
 Simulator &Simulator::getInstance() {
   static Simulator instance;
   return instance;
@@ -28,10 +32,7 @@ acpp::value_result<Simulation> Simulator::loadTopology( const std::string &topo_
   return { {}, "unimplemented" };
 }
 
-void Simulator::addModel( const Model &model ) {
-}
-
-void Simulator::takeModel( Model &&model ) {
+void Simulator::addModel( std::shared_ptr<Model> model ) {
 }
 
 }  // namespace sim
