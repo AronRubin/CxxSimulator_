@@ -163,7 +163,7 @@ struct flagset {
     return *this;
   }
   flagset &operator=( const flag_type &flag ) {
-    bitset{ (1 << static_cast<base_type>( flag )) };
+    bitset = (1 << static_cast<base_type>( flag ));
     return *this;
   }
   flagset &operator+=( const flag_type &flag ) {
