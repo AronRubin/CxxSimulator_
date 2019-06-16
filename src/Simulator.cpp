@@ -4,16 +4,20 @@
 #include <CxxSimulator/Simulator.h>
 #include <nlohmann/json.hpp>
 
+#include <map>
+#include <vector>
+#include <string>
+
 using json = nlohmann::json;
 
 namespace sim {
 
-class Simulation::Impl {
+struct Simulation::Impl {
 
 };
 
-class Simulator::Impl {
-  
+struct Simulator::Impl {
+  std::unordered_map<std::string, std::shared_ptr<Model>> m_models;
 };
 
 Simulator::Simulator() : impl( new Impl ) {
@@ -33,6 +37,10 @@ acpp::value_result<Simulation> Simulator::loadTopology( const std::string &topo_
 }
 
 void Simulator::addModel( std::shared_ptr<Model> model ) {
+  if( !model ) {
+    return;
+  }
+  impl->m_models.emplace( model->name(), model );
 }
 
 }  // namespace sim

@@ -102,6 +102,7 @@ set_property(TARGET CxxSimulatorExec PROPERTY OUTPUT_NAME CxxSimulator)
 target_include_directories(CxxSimulatorExec PRIVATE include)
 target_link_libraries(CxxSimulatorExec CxxSimulator)
 
+add_subdirectory(models/queuing)
 
 include(CTest)
 

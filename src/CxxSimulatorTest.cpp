@@ -12,6 +12,9 @@ TEST( flagset, metas ) {
   EXPECT_FALSE( fs2[Flags::THREE] );
 }
 
+/**
+ * Fixture for testing the simulator which resets the global simulator instance for each test.
+ */
 struct SimulatorTest : testing::Test {
   void SetUp() override {
     sim::Simulator::getInstance().reset();
@@ -32,8 +35,8 @@ public:
 };
 
 TEST_F( SimulatorTest, model_adoption ) {
-  auto model = std::make_shared<TestModel>();
-  
-  sim::Simulator::getInstance().addModel( {} );
+  sim::Simulator::getInstance().addModel<TestModel>();
+
+  // sim::Simulator::getInstance().
 }
 

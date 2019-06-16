@@ -28,16 +28,7 @@ struct PadSpec {
   std::unordered_map<std::string, acpp::unstructured_value> properties;
 };
 
-class ActivitySpec {
-public:
-  ActivitySpec( const std::string &name, const std::string &triggering_event, const std::function<void()> &function ) :
-      m_name( name ),
-      m_triggering_event( triggering_event ),
-      m_function( function ) {}
-  std::string name() const { return m_name; }
-  void setName( const std::string &name ) { m_name = name; }
-
-private:
+struct ActivitySpec {
   std::string m_name;
   std::string m_triggering_event;
   std::function<void()> m_function;
@@ -45,10 +36,16 @@ private:
 
 class Activity : public std::enable_shared_from_this<Activity> {
 public:
-  Activity();
+  enum class State : uint32_t { INIT, RUN, PAUSE, DONE };
+
+  Activity( const ActivitySpec &spec );
 
   ActivitySpec spec() const;
   
+  State state() const;
+
+  State state( State &pending ) const;
+
 private:
   class Impl;
   std::unique_ptr<Impl> impl;
@@ -82,6 +79,12 @@ public:
   ~Model();
   Model( Model &&other ) = default;
   Model &operator=( Model &&other ) = default;
+
+  std::string name() const;
+  std::vector<PadSpec> pads();
+  PadSpec pad( const std::string &name );
+  std::vector<ActivitySpec> activities();
+  ActivitySpec activity( const std::string &name );
 
   // entry point for the model
   virtual ActivitySpec startActivity() = 0;

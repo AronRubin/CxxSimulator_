@@ -78,6 +78,16 @@ public:
    */
   void addModel( std::shared_ptr<Model> model );
 
+  /**
+   * Register a model for instancing
+   * 
+   * @tparam ModelType a model type
+   */
+  template <typename ModelType>
+  void addModel() {
+    addModel( std::make_shared<ModelType>() );
+  }
+
   // mark as immoveable
   Simulator( Simulator && ) = delete;
   Simulator &operator =(Simulator && ) = delete;
