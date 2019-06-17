@@ -1,4 +1,3 @@
-#pragma once
 
 #ifndef CPP_UTILS_H_INCLUDED
 #define CPP_UTILS_H_INCLUDED
@@ -10,6 +9,7 @@
 #include <utility>
 #include <variant>
 #include <bitset>
+#include <optional>
 
 namespace acpp {
 
@@ -93,6 +93,10 @@ struct void_result {
 
   void_result() noexcept = default;
 
+  explicit operator bool() const {
+    return is_success;
+  }
+
   const bool is_success = true;
   const error_type err;
   const std::string msg;
@@ -124,7 +128,7 @@ struct value_result : public void_result<S> {
 
   explicit value_result( value_type &&value ) noexcept : value{ std::forward<value_type>( value ) } {}
 
-  const value_type value;
+  const std::optional<value_type> value;
 };
 
 /**
@@ -258,6 +262,11 @@ using unstructured_value = std::variant<
     std::vector<uintmax_t>,
     std::vector<double>,
     std::vector<std::string>>;
+
+template <typename T, typename... Vals>
+constexpr bool val_in(T first, Vals... vals ) {
+  return ((first == vals) || ...);
+}
 
 }  // namespace acpp
 

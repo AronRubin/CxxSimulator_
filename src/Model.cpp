@@ -44,7 +44,16 @@ struct Instance::Impl {
   std::unordered_map<std::string, std::shared_ptr<Activity>> m_activities;
 };
 
-Instance::Instance( Simulator &sim, std::shared_ptr<Model> model, const std::string &name ) : impl( new Impl ) {
+Instance::~Instance() = default;
+Instance::Instance( Instance &&other ) : impl{ std::move(other.impl) } {
+}
+
+Instance &Instance::operator=( Instance &&other ) {
+  std::swap( impl, other.impl );
+  return *this;
+}
+
+Instance::Instance( Simulation &sim, std::shared_ptr<Model> model, const std::string &name ) : impl( new Impl ) {
   if (!model) {
     throw "model not supplied";
   }
@@ -53,6 +62,10 @@ Instance::Instance( Simulator &sim, std::shared_ptr<Model> model, const std::str
   }
   impl->m_name = name;
   impl->m_model = model;
+}
+
+std::string Instance::name() const {
+  return impl->m_name;
 }
 
 struct Activity::Impl {

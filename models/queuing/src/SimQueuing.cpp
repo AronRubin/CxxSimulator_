@@ -22,42 +22,51 @@ SourceModel::SourceModel() : Model("SourceModel") {
 }
 
 ActivitySpec SourceModel::startActivity() {
-  return { "start", "start", []() { } };
+  using namespace std::chrono_literals;
+  return {
+    "start",
+    "start",
+    []( Instance &ins, Activity &act ) {
+      while( act.state() == Activity::State::RUN ) {
+        act.waitFor( 1s );
+      }
+    }
+  };
 }
 
 QueueModel::QueueModel() : Model("QueueModel") {
 }
 
 ActivitySpec QueueModel::startActivity() {
-  return { "start", "start", []() { } };
+  return { "start", "start", []( Instance &ins, Activity &act ) { } };
 }
 
 ProcessorModel::ProcessorModel() : Model("ProcessorModel") {
 }
 
 ActivitySpec ProcessorModel::startActivity() {
-  return { "start", "start", []() { } };
+  return { "start", "start", []( Instance &ins, Activity &act ) { } };
 }
 
 DelayModel::DelayModel() : Model("DelayModel") {
 }
 
 ActivitySpec DelayModel::startActivity() {
-  return { "start", "start", []() { } };
+  return { "start", "start", [this]( Instance &ins, Activity &act ) { } };
 }
 
 MultiplexModel::MultiplexModel() : Model("MultiplexModel") {
 }
 
 ActivitySpec MultiplexModel::startActivity() {
-  return { "start", "start", []() { } };
+  return { "start", "start", [this]( Instance &ins, Activity &act ) { } };
 }
 
 SinkModel::SinkModel() : Model("SinkModel") {
 }
 
 ActivitySpec SinkModel::startActivity() {
-  return { "start", "start", []() { } };
+  return { "start", "start", [this]( Instance &ins, Activity &act ) { } };
 }
 
 

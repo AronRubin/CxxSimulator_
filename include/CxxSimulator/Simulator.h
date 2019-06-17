@@ -5,12 +5,16 @@
 #ifndef SIMULATOR_H_INCLUDED
 #define SIMULATOR_H_INCLUDED
 
+#include "cpp_utils.h"
+#include "Model.h"
+#include "Clock.h"
+
+#include <memory>
+#include <functional>
 #include <string>
 #include <system_error>
 #include <optional>
 #include <iterator>
-#include "cpp_utils.h"
-#include "Model.h"
 
 namespace sim {
 
@@ -23,22 +27,23 @@ class Simulation {
 public:
   using InstanceIterator = std::vector<Instance>::iterator;
   using ConstInstanceIterator = std::vector<Instance>::const_iterator;
+  enum class State { INIT, RUN, PAUSE, DONE };
 
-  Simulation() = default;
-  ~Simulation() = default;
+  Simulation();
+  ~Simulation();
 
   // sure you can _copy_, but _should_ you?
   Simulation( const Simulation &other );
   Simulation( Simulation &&other );
   
   acpp::value_result<std::reference_wrapper<Instance>> emplace( Instance &&instance );
-  acpp::value_result<std::reference_wrapper<Instance>> emplace( const Model &stats, const std::string &name );
+  acpp::value_result<std::reference_wrapper<Instance>> emplace( std::shared_ptr<Model> model, const std::string &name );
   std::optional<std::reference_wrapper<Instance>> getInstance( const std::string &name );
 
   // global parameters
   acpp::void_result<> setParameter( const std::string &name, const std::string &value );
   std::optional<std::string> getParameter( const std::string &name );
-
+  
 private:
   friend class Simulator;
 
@@ -59,6 +64,8 @@ public:
   static Simulator &getInstance();
 
   void reset();
+
+  std::shared_ptr<Model> model( const std::string &name );
 
   // design choice: no throw
   
