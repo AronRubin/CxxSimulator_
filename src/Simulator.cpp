@@ -21,14 +21,18 @@ struct SimEvent {
   Clock::time_point time;
   std::shared_ptr<Activity> activity;
 
-  friend bool operator<(const SimEvent &eva, const SimEvent & evb ) {
+  friend bool operator<( const SimEvent &eva, const SimEvent & evb ) {
     return eva.time < evb.time;
   }
 };
 
 struct Simulation::Impl {
-  Clock m_clock;
+  Clock::time_point m_simtime;
+  State m_state = State::INIT;
+  State m_pending_state = State::INIT;
 
+  std::unordered_map<std::string, acpp::unstructured_value> m_parameters;
+  
   std::map<std::string, Instance> m_instances;
 
   std::priority_queue<SimEvent, std::list<SimEvent>> m_events;
@@ -56,7 +60,7 @@ acpp::value_result<std::reference_wrapper<Instance>> Simulation::emplace( std::s
   }
 }
 
-std::optional<std::reference_wrapper<Instance>> Simulation::getInstance( const std::string &name ) {
+std::optional<std::reference_wrapper<Instance>> Simulation::instance( const std::string &name ) const {
   auto iter = impl->m_instances.find( name );
   if (iter == impl->m_instances.end()) {
     return {};
@@ -64,9 +68,36 @@ std::optional<std::reference_wrapper<Instance>> Simulation::getInstance( const s
   return { std::ref( iter->second ) };
 }
 
-  // global parameters
-  acpp::void_result<> setParameter( const std::string &name, const std::string &value );
-  std::optional<std::string> getParameter( const std::string &name );
+// global parameters
+acpp::void_result<> Simulation::setParameter( const std::string &name, const acpp::unstructured_value &value ) {
+  impl->m_parameters.emplace( name, value );
+  return {};
+}
+
+acpp::unstructured_value Simulation::parameter( const std::string &name ) const {
+  auto iter = impl->m_parameters.find( name );
+  if ( iter == impl->m_parameters.end() ) {
+    return {};
+  }
+  return iter->second;
+}
+
+Clock::time_point Simulation::simtime() const {
+  return impl->m_simtime;
+}
+
+Simulation::State Simulation::state() const {
+  return impl->m_state;
+}
+
+Simulation::State Simulation::pendingState() const {
+  return impl->m_pending_state;
+}
+
+acpp::void_result<> Simulation::setState( const Simulation::State &state ) {
+  impl->m_pending_state = state;
+  return {};
+}
 
 struct Simulator::Impl {
   std::unordered_map<std::string, std::shared_ptr<Model>> m_models;

@@ -38,12 +38,23 @@ public:
   
   acpp::value_result<std::reference_wrapper<Instance>> emplace( Instance &&instance );
   acpp::value_result<std::reference_wrapper<Instance>> emplace( std::shared_ptr<Model> model, const std::string &name );
-  std::optional<std::reference_wrapper<Instance>> getInstance( const std::string &name );
+  std::optional<std::reference_wrapper<Instance>> instance( const std::string &name ) const;
 
   // global parameters
-  acpp::void_result<> setParameter( const std::string &name, const std::string &value );
-  std::optional<std::string> getParameter( const std::string &name );
-  
+  acpp::unstructured_value parameter( const std::string &name ) const;
+  template <typename T>
+  std::optional<T> parameter( const std::string &name ) const {
+    return acpp::get_as<T>( parameter( name ) );
+  }
+  acpp::void_result<> setParameter( const std::string &name, const acpp::unstructured_value &value );
+
+  Clock::time_point simtime() const;
+
+  State state() const;
+  State pendingState() const;
+
+  acpp::void_result<> setState( const State &state );
+
 private:
   friend class Simulator;
 
