@@ -10,6 +10,7 @@
 #include <variant>
 #include <bitset>
 #include <optional>
+#include <sstream>
 
 namespace acpp {
 
@@ -264,8 +265,48 @@ using unstructured_value = std::variant<
     std::vector<std::string>>;
 
 template <typename T, typename... Vals>
-constexpr bool val_in(T first, Vals... vals ) {
-  return ((first == vals) || ...);
+constexpr bool val_in( T needle, Vals... haystack ) {
+  return ( ( needle == haystack ) || ... );
+}
+
+template <typename Rt>
+constexpr std::optional<Rt> get_as( const unstructured_value &value ) {
+  if ( value.valueless_by_exception() || value.index() == 0 ) {
+    return {};
+  }
+  return std::visit( []( auto &&arg ) -> std::optional<Rt> {
+      using Vt = std::decay_t<decltype( arg )>;
+      if constexpr ( std::is_convertible_v<Vt, Rt> ) {
+        return arg;
+      } else if constexpr ( std::is_same_v<Rt, std::string> ) {
+        if constexpr ( std::is_arithmetic_v<Vt::value_type> ) {
+          std::ostringstream ostr;
+          bool not_first = false;
+          for ( const auto &elem : arg ) {
+            if ( not_first ) {
+              ostr << ", ";
+            } else {
+              not_first = true;
+            }
+            ostr << elem;
+          }
+          return ostr.str();
+        } else {
+          return std::to_string( arg );
+        }
+      } else if constexpr ( std::is_same_v<Rt, bool> && std::is_same_v<Vt, std::string> ) {
+        return arg.empty() || val_in( arg.front(), 'n', 'N', 'f', 'F' ) ||
+               ( arg.size() > 1 && val_in( arg[0], 'o', 'O' ) && val_in( arg[1], 'f', 'F' ) );
+      } else if constexpr ( std::is_unsigned_v<Rt> && std::is_same_v<Vt, std::string> ) {
+        return std::stoull( arg );
+      } else if constexpr ( std::is_integral_v<Rt> && std::is_same_v<Vt, std::string> ) {
+        return std::stoll( arg );
+      } else if constexpr ( std::is_floating_point_v<Rt> && std::is_same_v<Vt, std::string> ) {
+        return std::stod( arg );
+      }
+      return {};
+    },
+    value );
 }
 
 }  // namespace acpp
