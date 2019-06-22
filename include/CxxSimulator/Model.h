@@ -5,13 +5,16 @@
 #ifndef MODEL_H_INCLUDED
 #define MODEL_H_INCLUDED
 
+#include "cpp_utils.h"
+#include "Clock.h"
+#include "Common.h"
+
 #include <optional>
 #include <string>
 #include <system_error>
 #include <bitset>
 #include <map>
-#include "cpp_utils.h"
-#include "Clock.h"
+#include <any>
 
 namespace sim {
 
@@ -44,7 +47,10 @@ class Activity : public std::enable_shared_from_this<Activity> {
 public:
   enum class State : uint32_t { INIT, RUN, PAUSE, DONE };
 
-  Activity( const ActivitySpec &spec );
+  Activity( Simulation &sim, const ActivitySpec &spec );
+  ~Activity();
+  Activity( Activity &&other ) noexcept;
+  Activity &operator=( Activity &&other ) noexcept;
 
   ActivitySpec spec() const;
   
@@ -52,9 +58,13 @@ public:
 
   State state( State &pending ) const;
 
-  void waitFor( sim::Clock::duration dur ) {
+  std::shared_ptr<Instance> owner() const;
 
-  }
+  void waitFor( sim::Clock::duration dur );
+  void waitUntil( sim::Clock::time_point time );
+
+  acpp::value_result<std::any> receive( const std::string &name );
+  acpp::value_result<std::any> receive( const std::string &name, sim::Clock::duration timeout );
 
 private:
   class Impl;
@@ -64,8 +74,8 @@ private:
 class Instance : public std::enable_shared_from_this<Instance> {
 public:
   Instance( Simulation &sim, std::shared_ptr<Model> model, const std::string &name );
-  Instance( Instance &&other );
-  Instance &operator=( Instance &&other );
+  Instance( Instance &&other ) noexcept;
+  Instance &operator=( Instance &&other ) noexcept;
   ~Instance();
 
   std::string name() const;
@@ -75,6 +85,8 @@ public:
 
   std::shared_ptr<Activity> requestActivity( const std::string spec_name, const std::string &name );
   acpp::void_result<> setParameter( const std::string &name, const acpp::unstructured_value &value );
+
+  std::shared_ptr<Simulation> owner() const;
 
 private:
   // only a Simulation can create an instance

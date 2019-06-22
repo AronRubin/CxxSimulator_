@@ -45,13 +45,8 @@ struct Instance::Impl {
 };
 
 Instance::~Instance() = default;
-Instance::Instance( Instance &&other ) : impl{ std::move(other.impl) } {
-}
-
-Instance &Instance::operator=( Instance &&other ) {
-  std::swap( impl, other.impl );
-  return *this;
-}
+Instance::Instance( Instance &&other ) noexcept = default;
+Instance &Instance::operator=( Instance &&other ) noexcept = default;
 
 Instance::Instance( Simulation &sim, std::shared_ptr<Model> model, const std::string &name ) : impl( new Impl ) {
   if (!model) {
@@ -74,9 +69,12 @@ struct Activity::Impl {
   State m_pending_state;
 };
 
-Activity::Activity( const ActivitySpec &spec ) : impl( new Impl ) {
+Activity::Activity( Simulation &sim, const ActivitySpec &spec ) : impl( new Impl ) {
   impl->m_spec = spec;
 }
+Activity::~Activity() = default;
+Activity::Activity( Activity &&other ) noexcept = default;
+Activity &Activity::operator=( Activity &&other ) noexcept = default;
 
 ActivitySpec Activity::spec() const {
   return impl->m_spec;
