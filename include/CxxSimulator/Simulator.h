@@ -7,7 +7,9 @@
 
 #include "cpp_utils.h"
 #include "Model.h"
+#include "Instance.h"
 #include "Clock.h"
+#include "Common.h"
 
 #include <memory>
 #include <functional>
@@ -36,9 +38,20 @@ public:
   Simulation( const Simulation &other );
   Simulation( Simulation &&other );
   
-  acpp::value_result<std::reference_wrapper<Instance>> emplace( Instance &&instance );
-  acpp::value_result<std::reference_wrapper<Instance>> emplace( std::shared_ptr<Model> model, const std::string &name );
-  std::optional<std::reference_wrapper<Instance>> instance( const std::string &name ) const;
+  
+  acpp::void_result<> spawnInstance(
+    const std::string &name,
+    const std::string &model,
+    const PropertyList &parameters = {},
+    const Clock::time_point &time = {} );
+  
+  acpp::void_result<> spawnActivity(
+    const std::string &name,
+    const std::string &instance,
+    const PropertyList &parameters = {},
+    const Clock::time_point &time = {} );
+  
+  std::shared_ptr<Instance> instance( const std::string &name ) const;
 
   // global parameters
   acpp::unstructured_value parameter( const std::string &name ) const;
@@ -46,12 +59,15 @@ public:
   std::optional<T> parameter( const std::string &name ) const {
     return acpp::get_as<T>( parameter( name ) );
   }
-  acpp::void_result<> setParameter( const std::string &name, const acpp::unstructured_value &value );
+
+  acpp::void_result<> setParameter(
+    const std::string &name,
+    const acpp::unstructured_value &value );
 
   Clock::time_point simtime() const;
 
   State state() const;
-  State pendingState() const;
+  State state( State &pending ) const;
 
   acpp::void_result<> setState( const State &state );
 
@@ -61,10 +77,16 @@ private:
   // PIMPL
   class Impl;
   std::unique_ptr<Impl> impl;
+
+public:
+  /**
+   * @brief Oxymoron advertising privates for those in the know
+   */
+  class Private;
 };
 
 /**
- * The manager and factory of simulations
+ * @brief The manager and factory of simulations
  * This is a singleton
  */
 class Simulator {

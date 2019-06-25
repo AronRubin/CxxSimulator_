@@ -78,11 +78,12 @@ add_library(CxxSimulator SHARED
   src/Model.cpp
 )
 
-target_sources(
-  CxxSimulator
-  PRIVATE
+target_sources(CxxSimulator PRIVATE src/Simulation_p.h)
+
+target_sources(CxxSimulator PRIVATE
     include/CxxSimulator/Simulator.h
     include/CxxSimulator/Model.h
+    include/CxxSimulator/Instance.h
     include/CxxSimulator/cpp_utils.h
 )
 

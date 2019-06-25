@@ -2,6 +2,8 @@
 //
 
 #include <CxxSimulator/Simulator.h>
+#include "Simulation_p.h"
+
 #include <nlohmann/json.hpp>
 
 #include <map>
@@ -10,20 +12,63 @@
 #include <chrono>
 #include <memory>
 #include <functional>
-#include <queue>
+#include <algorithm>
+#include <deque>
 #include <list>
+#include <any>
+#include <variant>
 
 using json = nlohmann::json;
 
 namespace sim {
 
 struct SimEvent {
-  Clock::time_point time;
-  std::shared_ptr<Activity> activity;
+  enum class Type {
+    STATE_CHANGE,
+    SPAWN_INSTANCE,
+    SPAWN_ACTIVITY,
+    RESUME_ACTIVITY,
+    PAD_SEND
+  };
 
+  SimEvent(
+      Type type,
+      const Clock::time_point &time,
+      const std::string &name,
+      const std::string &owner = {},
+      std::any payload = {} ) :
+      type( type ),
+      time( time ),
+      name( name ),
+      owner( owner ),
+      payload( payload ) {}
+  ~SimEvent() = default;
+  SimEvent( SimEvent & ) = default;
+  SimEvent &operator=( SimEvent & ) = default;
+  SimEvent( SimEvent && ) = default;
+  SimEvent &operator=( SimEvent && ) = default;
+
+  Type type;
+  Clock::time_point time;
+  std::string name;
+  std::string owner;
+  std::any payload;
+  
   friend bool operator<( const SimEvent &eva, const SimEvent & evb ) {
     return eva.time < evb.time;
   }
+};
+
+struct WaitingActivity {
+  using PromiseVariant = std::variant<std::promise<acpp::void_result<>>, std::promise<acpp::value_result<std::any>>>;
+
+  WaitingActivity( const Clock::time_point &time = {} ) :
+      promise{ std::in_place_index<0> }, time{ time } {}
+  WaitingActivity( const std::string &signal_name, const Clock::time_point &time ) :
+      promise{ std::in_place_index<1> }, time{ time }, signal_name( signal_name ) {}
+  PromiseVariant promise;
+  Clock::time_point time;
+  std::string signal_name;
 };
 
 struct Simulation::Impl {
@@ -31,41 +76,156 @@ struct Simulation::Impl {
   State m_state = State::INIT;
   State m_pending_state = State::INIT;
 
-  std::unordered_map<std::string, acpp::unstructured_value> m_parameters;
-  
-  std::map<std::string, Instance> m_instances;
+  PropertyList m_parameters;
+  std::map<std::string, std::shared_ptr<Instance> > m_instances;
+  std::deque<SimEvent> m_events;
+  std::map<std::shared_ptr<Activity>, WaitingActivity> m_waiting_activities;
 
-  std::priority_queue<SimEvent, std::list<SimEvent>> m_events;
+  acpp::void_result<> insertSpawnInstance(
+      const std::string &name,
+      const std::string &model,
+      const PropertyList &parameters,
+      const Clock::time_point &time );
+
+  acpp::void_result<> insertSpawnActivity(
+      const std::string &name,
+      const std::string &instance,
+      const PropertyList &parameters,
+      const Clock::time_point &time );
+
+  std::future<acpp::void_result<>> insertResumeActivity(
+      std::shared_ptr<Activity> activity,
+      const Clock::time_point &time );
+
+  std::future<acpp::value_result<std::any>> activityReceive(
+      std::shared_ptr<Activity> activity,
+      const std::string &signal_name,
+      const Clock::time_point &time = {} );
+
 };
 
 Simulation::Simulation() : impl( new Impl ) {}
 
 Simulation::~Simulation() = default;
 
-acpp::value_result<std::reference_wrapper<Instance>> Simulation::emplace( Instance &&instance ) {
-  auto [iter, success] = impl->m_instances.try_emplace( instance.name(), std::forward<Instance>( instance ) );
-  if (success) {
-    return acpp::value_result<std::reference_wrapper<Instance>>( std::ref( iter->second ) );
-  } else {
-    return { {}, "key not unique" };
-  }
+acpp::void_result<> Simulation::spawnInstance(
+    const std::string &name,
+    const std::string &model,
+    const PropertyList &parameters,
+    const Clock::time_point &time ) {
+  return impl->insertSpawnInstance( name, model, parameters, time );
 }
 
-acpp::value_result<std::reference_wrapper<Instance>> Simulation::emplace( std::shared_ptr<Model> model, const std::string &name ) {
-  auto [iter, success] = impl->m_instances.try_emplace( name, *this, model, name );
-  if (success) {
-    return acpp::value_result<std::reference_wrapper<Instance>>( std::ref( iter->second ) );
-  } else {
-    return { {}, "key not unique" };
+acpp::void_result<> Simulation::Impl::insertSpawnInstance(
+    const std::string &name,
+    const std::string &model,
+    const PropertyList &parameters,
+    const Clock::time_point &time ) {
+  auto iiter = m_instances.find( name );
+  if (iiter != m_instances.end()) {
+    return { {}, "instance not unique" };
   }
+  // TODO lock here
+  // check if this is pending spawn
+  auto eiter = std::find_if(
+      m_events.begin(),
+      m_events.end(),
+      [name]( const SimEvent &event ) {
+        return event.type == SimEvent::Type::SPAWN_INSTANCE && event.name == name;
+      } );
+  if (eiter != m_events.end()) {
+    return { {}, "instance not unique" };
+  }
+  
+  Clock::time_point event_time = time;
+  if (time.time_since_epoch() == Clock::duration::zero()) {
+    event_time = m_simtime;
+  }
+  m_events.emplace_back( SimEvent::Type::SPAWN_INSTANCE, event_time, name, model, parameters );
+  std::push_heap( m_events.begin(), m_events.end() );
+
+  return {};
 }
 
-std::optional<std::reference_wrapper<Instance>> Simulation::instance( const std::string &name ) const {
-  auto iter = impl->m_instances.find( name );
-  if (iter == impl->m_instances.end()) {
-    return {};
+acpp::void_result<> Simulation::Impl::insertSpawnActivity(
+    const std::string &name,
+    const std::string &instance,
+    const PropertyList &parameters,
+    const Clock::time_point &time ) {
+  auto iiter = m_instances.find( instance );
+  if (iiter == m_instances.end()) {
+    // TODO allow if there is a spawn instance of the right name before time
+    return { {}, "instance not found" };
   }
-  return { std::ref( iter->second ) };
+  // TODO lock here
+  Clock::time_point event_time = time;
+  if (time.time_since_epoch() == Clock::duration::zero()) {
+    event_time = m_simtime;
+  }
+  m_events.emplace_back( SimEvent::Type::SPAWN_ACTIVITY, event_time, name, instance, parameters );
+  std::push_heap( m_events.begin(), m_events.end() );
+
+  return {};
+}
+
+std::future<acpp::void_result<>> Simulation::Impl::insertResumeActivity(
+    std::shared_ptr<Activity> activity,
+    const Clock::time_point &time ) {
+  // TODO lock here
+  // TODO check that event_time is >= simtime
+  Clock::time_point event_time = time;
+  if (time.time_since_epoch() == Clock::duration::zero()) {
+    event_time = m_simtime;
+  }
+  m_events.emplace_back(
+      SimEvent::Type::RESUME_ACTIVITY,
+      event_time,
+      activity->name(),
+      activity->owner()->name() );
+  std::push_heap( m_events.begin(), m_events.end() );
+  auto &wact = m_waiting_activities[activity];
+  wact = { event_time };
+  auto &promise = std::get<0>( wact.promise );
+
+  // it seems copy elision is not assumed here
+  return std::move( promise.get_future() );
+}
+
+std::future<acpp::void_result<>> Simulation::Private::insertResumeActivity(
+    std::shared_ptr<Simulation> simulation,
+    std::shared_ptr<Activity> act,
+    const Clock::time_point &time ) {
+  return simulation->impl->insertResumeActivity( act, time );
+}
+
+std::future<acpp::value_result<std::any>> Simulation::Impl::activityReceive(
+    std::shared_ptr<Activity> activity,
+    const std::string &signal_name,
+    const Clock::time_point &time ) {
+  // TODO lock here
+  // TODO check that event_time is >= simtime
+  if ( time.time_since_epoch() != Clock::duration::zero() ) {
+    m_events.emplace_back(
+        SimEvent::Type::RESUME_ACTIVITY,
+        time,
+        activity->name(),
+        activity->owner()->name() );
+    std::push_heap( m_events.begin(), m_events.end() );
+  }
+  auto &wact = m_waiting_activities[activity];
+  wact = { signal_name, time };
+  auto &promise = std::get<1>( wact.promise );
+
+  // it seems copy elision is not assumed here
+  return std::move( promise.get_future() );
+}
+
+std::future<acpp::value_result<std::any>> Simulation::Private::activityReceive(
+    std::shared_ptr<Simulation> simulation,
+    std::shared_ptr<Activity> activity,
+    const std::string &signal_name,
+    const Clock::time_point &time ) {
+  return simulation->impl->activityReceive( activity, signal_name, time );
 }
 
 // global parameters
@@ -90,14 +250,16 @@ Simulation::State Simulation::state() const {
   return impl->m_state;
 }
 
-Simulation::State Simulation::pendingState() const {
-  return impl->m_pending_state;
+Simulation::State Simulation::state( State &pending ) const {
+  pending = impl->m_pending_state;
+  return impl->m_state;
 }
 
 acpp::void_result<> Simulation::setState( const Simulation::State &state ) {
   impl->m_pending_state = state;
   return {};
 }
+
 
 struct Simulator::Impl {
   std::unordered_map<std::string, std::shared_ptr<Model>> m_models;
