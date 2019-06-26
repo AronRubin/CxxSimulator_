@@ -91,19 +91,23 @@ struct Activity::Impl {
   std::weak_ptr<Instance> m_instance;
   ActivitySpec m_spec;
   State m_state = State::INIT;
+  std::thread m_worker;
+  
   std::mutex m_state_mut;
   std::condition_variable m_state_cnd;
 
   void waitUntil( sim::Clock::time_point time );
-
   acpp::void_result<> waitOn( const std::string &name );
   acpp::void_result<> waitOn( const std::string &name, sim::Clock::duration timeout );
+
+  void workerFunc();
 };
 
 Activity::Activity( std::shared_ptr<Instance> instance, const ActivitySpec &spec ) : impl( new Impl ) {
   impl->m_activity = weak_from_this();
   impl->m_instance = instance;
   impl->m_spec = spec;
+  impl->m_worker = std::thread( &Activity::Impl::workerFunc, impl.get() );
 }
 Activity::~Activity() = default;
 Activity::Activity( Activity &&other ) noexcept = default;
@@ -123,6 +127,17 @@ std::shared_ptr<Instance> Activity::owner() const {
 
 std::string Activity::name() const {
   return impl->m_spec.name;
+}
+
+void Activity::Impl::workerFunc() {
+  if ( !m_spec.function ) {
+    return;
+  }
+  std::unique_lock<std::mutex> state_lock( m_state_mut );
+  m_state_cnd.wait( state_lock, [this]() { return m_state != State::INIT && m_state != State::PAUSE; } );
+  if ( m_state == State::RUN ) {
+    std::invoke( m_spec.function, *m_instance.lock(), *m_activity.lock() );
+  }
 }
 
 void Activity::Impl::waitUntil( sim::Clock::time_point time ) {
