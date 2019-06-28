@@ -76,14 +76,18 @@ find_package(Threads REQUIRED)
 add_library(CxxSimulator SHARED
   src/Simulator.cpp
   src/Model.cpp
+  src/Simulation.cpp
+  src/Instance.cpp
 )
 
-target_sources(CxxSimulator PRIVATE src/Simulation_p.h)
+target_sources(CxxSimulator PRIVATE src/Simulation_p.h src/Instance_p.h)
 
 target_sources(CxxSimulator PRIVATE
     include/CxxSimulator/Simulator.h
+    include/CxxSimulator/Simulation.h
     include/CxxSimulator/Model.h
     include/CxxSimulator/Instance.h
+    include/CxxSimulator/Common.h
     include/CxxSimulator/cpp_utils.h
 )
 

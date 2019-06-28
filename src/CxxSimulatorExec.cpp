@@ -1,5 +1,7 @@
 
 #include <CxxSimulator/Simulator.h>
+#include <CxxSimulator/Simulation.h>
+#include <CxxSimulator/Instance.h>
 
 #include <iostream>
 

@@ -19,11 +19,11 @@
 namespace sim {
 
 struct Simulation::Private {
-  static std::future<acpp::void_result<>> insertResumeActivity(
+  static std::future<bool> insertResumeActivity(
       std::shared_ptr<Simulation> simulation,
       std::shared_ptr<Activity> activity,
       const Clock::time_point &time );
-  static std::future<acpp::value_result<std::any>> activityReceive(
+  static std::future<bool> activityWaitOn(
       std::shared_ptr<Simulation> simulation,
       std::shared_ptr<Activity> activity,
       const std::string &signal_name,

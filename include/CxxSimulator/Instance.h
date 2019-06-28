@@ -56,7 +56,7 @@ class Activity : public std::enable_shared_from_this<Activity> {
 public:
   enum class State : uint32_t { INIT, RUN, PAUSE, DONE };
 
-  Activity( std::shared_ptr<Instance> instance, const ActivitySpec &spec );
+  Activity( std::shared_ptr<Instance> instance, const ActivitySpec &spec, const std::string &name );
   ~Activity();
   Activity( Activity &&other ) noexcept;
   Activity &operator=( Activity &&other ) noexcept;
@@ -67,9 +67,9 @@ public:
   std::string name() const;
 
   void waitFor( sim::Clock::duration dur );
-  void waitUntil( sim::Clock::time_point time );
-  acpp::void_result<> waitOn( const std::string &signal_name );
-  acpp::void_result<> waitOn( const std::string &signal_name, sim::Clock::duration timeout );
+  void waitUntil( const sim::Clock::time_point &time );
+  bool waitOn( const std::string &signal_name );
+  bool waitOn( const std::string &signal_name, sim::Clock::duration timeout );
 
 private:
   class Impl;
@@ -78,7 +78,11 @@ private:
 
 class Instance : public std::enable_shared_from_this<Instance> {
 public:
-  Instance( Simulation &sim, std::shared_ptr<Model> model, const std::string &name );
+  Instance(
+      std::shared_ptr<Simulation> sim,
+      std::shared_ptr<Model> model,
+      const std::string &name,
+      const PropertyList &parameters );
   Instance( Instance &&other ) noexcept;
   Instance &operator=( Instance &&other ) noexcept;
   ~Instance();
@@ -86,7 +90,12 @@ public:
   std::string name() const;
   std::shared_ptr<Model> model() const;
   acpp::unstructured_value parameter( const std::string &name ) const;
+  template <typename T>
+  std::optional<T> parameter( const std::string &name ) const {
+    return acpp::get_as<T>( parameter( name ) );
+  }
   std::shared_ptr<Activity> activity( const std::string &name ) const;
+  std::vector<std::shared_ptr<Activity>> activities() const;
   std::shared_ptr<Pad> pad( const std::string &name ) const;
 
   std::shared_ptr<Activity> requestActivity( const std::string spec_name, const std::string &name );
@@ -95,11 +104,11 @@ public:
   std::shared_ptr<Simulation> owner() const;
 
 private:
-  // only a Simulation can create an instance
-  friend class Simulation;
-
   class Impl;
   std::unique_ptr<Impl> impl;
+  
+public:
+  class Private;
 };
 
 

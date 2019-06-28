@@ -25,16 +25,19 @@ class Activity;
 class Instance;
 
 /**
- * POD to specify a model's pad
+ * Structure to specify how a pad is constructed (a connection point for a instance)
  */
 struct PadSpec {
   enum class Flag : uint32_t { CAN_INPUT, CAN_OUTPUT, IS_TEMPLATE, BY_REQUEST, COUNT__ };
 
   std::string name;
   acpp::flagset<Flag> flags = { Flag::CAN_INPUT, Flag::CAN_OUTPUT };
-  std::unordered_map<std::string, acpp::unstructured_value> properties;
+  PropertyList properties;
 };
 
+/**
+ * Structure to specify a how an activity is constructed
+ */
 struct ActivitySpec {
   using ActivityFunc = std::function<void( Instance &, Activity & )>;
 
