@@ -3,6 +3,8 @@
 
 #include <CxxSimulator/Simulator.h>
 #include <CxxSimulator/Model.h>
+#include "Simulation_p.h"
+
 #include <nlohmann/json.hpp>
 
 #include <map>
@@ -14,21 +16,29 @@ using json = nlohmann::json;
 namespace sim {
 
 struct Model::Impl {
+  Impl( const std::string &name ) : m_name{ name } {
+    if (name.empty()) {
+      throw "name not specified";
+    }
+  }
+  ~Impl() = default;
+  Impl( Impl &&other ) noexcept = default;
+  Impl &operator=( Impl &&other ) noexcept = default;
+  
   std::string m_name;
   std::unordered_map<std::string, acpp::unstructured_value> m_parameters;
   std::unordered_map<std::string, ActivitySpec> m_activity_specs;
   std::unordered_map<std::string, PadSpec> m_pad_specs;
 };
 
-Model::Model( const std::string &name ) : impl( new Impl ) {
-  impl->m_name = name;
+Model::Model( const std::string &name ) : impl( new Impl{ name } ) {
 }
 
 Model::~Model() = default;
 
 void Model::addPadSpec( const PadSpec &spec ) {
   if (spec.name.empty()) {
-
+    return;
   }
   impl->m_pad_specs[spec.name] = spec;
 }
@@ -37,55 +47,39 @@ std::string Model::name() const {
   return impl->m_name;
 }
 
-struct Instance::Impl {
-  std::string m_name;
-  std::shared_ptr<Model> m_model;
-  std::unordered_map<std::string, acpp::unstructured_value> m_parameters;
-  std::unordered_map<std::string, std::shared_ptr<Activity>> m_activities;
-};
-
-Instance::~Instance() = default;
-Instance::Instance( Instance &&other ) noexcept = default;
-Instance &Instance::operator=( Instance &&other ) noexcept = default;
-
-Instance::Instance( Simulation &sim, std::shared_ptr<Model> model, const std::string &name ) : impl( new Impl ) {
-  if (!model) {
-    throw "model not supplied";
+std::vector<PadSpec> Model::pads() {
+  std::vector<PadSpec> pads;
+  for ( const auto &padent : impl->m_pad_specs ) {
+    pads.push_back( padent.second );
   }
-  if (name.empty()) {
-    throw "name not supplied";
-  }
-  impl->m_name = name;
-  impl->m_model = model;
+  return pads;
 }
 
-std::string Instance::name() const {
-  return impl->m_name;
-}
-
-struct Activity::Impl {
-  ActivitySpec m_spec;
-  State m_state;
-  State m_pending_state;
-};
-
-Activity::Activity( Simulation &sim, const ActivitySpec &spec ) : impl( new Impl ) {
-  impl->m_spec = spec;
+PadSpec Model::pad( const std::string &name ) {
+  auto iter = impl->m_pad_specs.find( name );
+  if ( iter == impl->m_pad_specs.end() ) {
+    return {};
+  }
+  return iter->second;
 }
 Activity::~Activity() = default;
 Activity::Activity( Activity &&other ) noexcept = default;
 Activity &Activity::operator=( Activity &&other ) noexcept = default;
 
-ActivitySpec Activity::spec() const {
-  return impl->m_spec;
+std::vector<ActivitySpec> Model::activities() {
+  std::vector<ActivitySpec> activities;
+  for ( const auto &activityent : impl->m_activity_specs ) {
+    activities.push_back( activityent.second );
+  }
+  return activities;
 }
 
-Activity::State Activity::state() const {
-  return impl->m_state;
-}
-  
-Activity::State Activity::state( State &pending ) const {
-  return impl->m_pending_state;
+ActivitySpec Model::activity( const std::string &name ) {
+  auto iter = impl->m_activity_specs.find( name );
+  if ( iter == impl->m_activity_specs.end() ) {
+    return {};
+  }
+  return iter->second;
 }
 
 }  // namespace sim

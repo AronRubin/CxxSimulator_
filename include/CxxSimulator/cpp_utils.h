@@ -253,6 +253,10 @@ using is_unsigned_scoped_enum = std::integral_constant<bool,
       std::is_unsigned<typename std::underlying_type<EnumT>::type>::value &&
       !std::is_convertible<EnumT, typename std::underlying_type<EnumT>::type>::value>;
 
+/**
+ * @brief A variant of the most common storage types for use in unstructured data.
+ * 
+ */
 using unstructured_value = std::variant<
     std::monostate,
     intmax_t,
@@ -269,6 +273,10 @@ constexpr bool val_in( T needle, Vals... haystack ) {
   return ( ( needle == haystack ) || ... );
 }
 
+/**
+ * @brief Get the value of an unstructured_value in as a specific type
+ * @tparam Rt return type
+ */
 template <typename Rt>
 constexpr std::optional<Rt> get_as( const unstructured_value &value ) {
   if ( value.valueless_by_exception() || value.index() == 0 ) {
@@ -320,5 +328,6 @@ constexpr typename std::enable_if<acpp::is_unsigned_scoped_enum<EnumT>::value, a
   acpp::flagset<EnumT> first{lhs};
   return first | acpp::flagset<EnumT>{rhs};
 }
+
 
 #endif // CPP_UTILS_H_INCLUDED
