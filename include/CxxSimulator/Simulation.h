@@ -28,9 +28,9 @@ public:
   enum class State { INIT, RUN, PAUSE, DONE };
 
   Simulation();
-  ~Simulation();
   Simulation( Simulation &&other );
   Simulation &operator=( Simulation &&other );
+  ~Simulation() noexcept;
 
   /**
    * @brief Get a reference to an instance that has already spawned

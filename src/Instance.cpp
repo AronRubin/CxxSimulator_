@@ -9,29 +9,40 @@
 #include <map>
 #include <string>
 #include <memory>
+#include <queue>
+#include <shared_mutex>
 
 namespace sim {
 
 struct Instance::Impl {
   Impl(
       Instance &instance,
-      std::shared_ptr<Simulation> sim,
+      std::shared_ptr<Simulation> simulation,
       std::shared_ptr<Model> model,
       const std::string &name,
       const PropertyList &parameters ) :
       m_instance{ instance },
-      m_simulation{ sim },
+      m_simulation{ simulation },
       m_model{ model },
       m_name{ name },
       m_parameters{ parameters } {
-    if ( name.empty() ) {
+    if ( m_name.empty() ) {
       throw "name not supplied";
     }
+    if( !m_simulation ) {
+      throw "simulation not supplied";
+    }
+    if( !m_model ) {
+      throw "model not supplied";
+    }
+    makeStartActivity();
   }
   
   ~Impl() = default;
   Impl( Impl &&other ) noexcept = default;
   Impl &operator=( Impl &&other ) noexcept = default;
+
+  void makeStartActivity(); // throws on error because making invariant
 
   bool insertActivity( const std::string &spec, const std::string &name );
 
@@ -41,11 +52,12 @@ struct Instance::Impl {
   std::string m_name;
   PropertyList m_parameters;
   std::unordered_map<std::string, std::shared_ptr<Activity>> m_activities;
+  std::unordered_map<std::string, std::shared_ptr<Pad>> m_pads;
 };
 
 Instance::~Instance() = default;
-Instance::Instance( Instance &&other ) noexcept = default;
-Instance &Instance::operator=( Instance &&other ) noexcept = default;
+Instance::Instance( Instance &&other ) = default;
+Instance &Instance::operator=( Instance &&other ) = default;
 
 Instance::Instance(
     std::shared_ptr<Simulation> sim,
@@ -65,6 +77,14 @@ std::shared_ptr<Simulation> Instance::owner() const {
 
 std::shared_ptr<Model> Instance::model() const {
   return impl->m_model;
+}
+
+std::shared_ptr<Pad> Instance::pad( const std::string &name ) const {
+  auto iter = impl->m_pads.find( name );
+  if ( iter == impl->m_pads.end() ) {
+    return {};
+  }
+  return iter->second;
 }
 
 acpp::unstructured_value Instance::parameter( const std::string &name ) const {
@@ -91,6 +111,23 @@ std::shared_ptr<Activity> Instance::activity( const std::string &name ) const {
   return iter->second;
 }
 
+void Instance::Impl::makeStartActivity() {
+  ActivitySpec spec {
+      "start",
+      [this]( Instance &instance, Activity &activity ) {
+        m_model->startActivity( instance, activity );
+      },
+      "start" };
+  auto activity = std::make_shared<Activity>( m_instance.shared_from_this(), spec, "start" );
+  if (!activity) {
+    throw "could not create start activity";
+  }
+  auto rv = m_activities.emplace( "start", activity );
+  if (!rv.second) {
+    throw "could not insert start activity";
+  }
+}
+
 bool Instance::Impl::insertActivity( const std::string &spec_name, const std::string &name ) {
   auto spec = m_model->activity( spec_name );
   if ( spec.name.empty() ) {
@@ -100,7 +137,11 @@ bool Instance::Impl::insertActivity( const std::string &spec_name, const std::st
   if ( aiter != m_activities.end() ) {
     return false;
   }
-  auto rv = m_activities.emplace( name, std::make_shared<Activity>( m_instance.shared_from_this(), spec, name ) );
+  auto activity = std::make_shared<Activity>( m_instance.shared_from_this(), spec, name );
+  if (!activity) {
+    return false;
+  }
+  auto rv = m_activities.emplace( name, activity );
   return rv.second;
 }
 
@@ -140,6 +181,9 @@ struct Activity::Impl {
   void waitUntil( const sim::Clock::time_point &time );
   bool waitOn( const std::string &name );
   bool waitOn( const std::string &name, sim::Clock::duration timeout );
+  acpp::value_result<std::any> padReceive( const std::string &pad_name );
+  acpp::value_result<std::any> padReceive( const std::string &pad_name, sim::Clock::duration timeout );
+  bool padSend( const std::string &pad_name, const std::any &payload );
 
   void workerFunc();
 };
@@ -149,8 +193,8 @@ Activity::Activity( std::shared_ptr<Instance> instance, const ActivitySpec &spec
 }
 
 Activity::~Activity() = default;
-Activity::Activity( Activity &&other ) noexcept = default;
-Activity &Activity::operator=( Activity &&other ) noexcept = default;
+Activity::Activity( Activity &&other ) = default;
+Activity &Activity::operator=( Activity &&other ) = default;
 
 ActivitySpec Activity::spec() const {
   return impl->m_spec;
@@ -236,6 +280,172 @@ bool Activity::waitOn( const std::string &signal_name ) {
 
 bool Activity::waitOn( const std::string &signal_name, sim::Clock::duration timeout ) {
   return impl->waitOn( signal_name, timeout );
+}
+
+acpp::value_result<std::any> Activity::Impl::padReceive( const std::string &pad_name ) {
+  // TODO lock
+  if ( m_state != State::RUN ) {
+    return { {}, "already running" }; // Activity already waiting
+  }
+  /* TODO stub
+  m_state = State::PAUSE;
+  auto future = Simulation::Private::activityWaitPad(
+      m_instance.lock()->owner(),
+      m_activity.shared_from_this(),
+      pad_name );
+  return future.get();
+  */
+ return { {}, "not implemented" };
+}
+
+acpp::value_result<std::any> Activity::Impl::padReceive( const std::string &pad_name, sim::Clock::duration timeout ) {
+  // TODO lock
+  if ( m_state != State::RUN ) {
+    return { {}, "already running" }; // Activity already waiting
+  }
+  /* TODO stub
+  m_state = State::PAUSE;
+  auto instance = m_instance.lock();
+  auto future = Simulation::Private::activityWaitOn(
+      m_instance.lock()->owner(),
+      m_activity.shared_from_this(),
+      signal_name,
+      instance->owner()->simtime() + timeout );
+  */
+  return { {}, "not implemented" };
+}
+
+bool Activity::Impl::padSend( const std::string &pad_name, const std::any &payload ) {
+  // TODO implement
+  return false;
+}
+
+acpp::value_result<std::any> Activity::padReceive( const std::string &pad_name ) {
+  return impl->padReceive( pad_name );
+}
+acpp::value_result<std::any> Activity::padReceive( const std::string &pad_name, sim::Clock::duration timeout ) {
+  return impl->padReceive( pad_name, timeout );
+}
+bool Activity::padSend( const std::string &pad_name, const std::any &payload ) {
+  return impl->padSend( pad_name, payload );
+}
+
+
+struct Pad::Impl {
+  Impl(
+      Pad &pad,
+      std::shared_ptr<Instance> instance,
+      const PadSpec &spec,
+      const std::string &name ) :
+      m_pad{ pad },
+      m_instance{ instance },
+      m_spec{ spec },
+      m_name{ name } {
+    if ( name.empty() ) {
+      throw "name not supplied";
+    }
+  }
+
+  bool connect( std::shared_ptr<Instance> instance, const std::string &pad_name );
+  acpp::value_result<std::any> pull();
+  bool push( const std::any &payload );
+  bool push( std::any &&payload );
+
+  Pad &m_pad; // Pad owns Pad::Impl
+  std::weak_ptr<Instance> m_instance;
+  PadSpec m_spec;
+  std::string m_name;
+  std::shared_ptr<Pad> m_peer;
+  std::shared_mutex m_queue_mut;
+  std::deque<std::any> m_queue;
+};
+
+Pad::Pad( std::shared_ptr<Instance> instance, const PadSpec &spec, const std::string &name ) :
+    impl( new Impl{ *this, instance, spec, name } ) {
+}
+
+Pad::~Pad() noexcept = default;
+Pad::Pad( Pad &&other ) = default;
+Pad &Pad::operator=( Pad &&other ) = default;
+
+PadSpec Pad::spec() const {
+  return impl->m_spec;
+}
+
+std::string Pad::name() const {
+  return impl->m_name;
+}
+
+std::shared_ptr<Instance> Pad::owner() const {
+  return impl->m_instance.lock();
+}
+
+std::shared_ptr<Pad> Pad::peer() const {
+  return impl->m_peer;
+}
+
+bool Pad::connect( std::shared_ptr<Instance> instance, const std::string &pad_name ) {
+  return impl->connect( instance, pad_name );
+}
+
+bool Pad::Impl::connect( std::shared_ptr<Instance> instance, const std::string &pad_name ) {
+  if (!instance) {
+    return false;
+  }
+  auto peer = instance->pad( pad_name );
+  if (!peer || peer->impl.get() == this) {
+    return false;
+  }
+
+  if (m_peer == peer) {
+    return true;
+  }
+
+  // TODO add new peer disconnect if needed
+  if (peer->peer()) {
+    return false;
+  }
+
+  // disconnect if needed
+  if (m_peer && m_peer->impl->m_peer && m_peer->impl->m_peer->impl.get() == this) {
+    m_peer->impl->m_peer.reset();
+  }
+
+  // now connect
+  m_peer = peer;
+  peer->impl->m_peer = m_pad.shared_from_this();
+
+  return true;
+}
+
+size_t Pad::available() const {
+  std::shared_lock lock { impl->m_queue_mut };
+  return impl->m_queue.size();
+}
+
+acpp::value_result<std::any> Pad::Private::pull( std::shared_ptr<Pad> pad ) {
+  return pad->impl->pull();
+}
+
+acpp::value_result<std::any> Pad::Impl::pull() {
+  std::unique_lock lock { m_queue_mut };
+  if (m_queue.empty()) {
+    return { {}, "nothing waiting" };
+  }
+  auto msg = m_queue.front();
+  m_queue.pop_front();
+
+  return acpp::value_result<std::any>( msg );
+}
+
+bool Pad::Private::push( std::shared_ptr<Pad> pad, const std::any &payload ) {
+  return pad->impl->push( payload );
+}
+
+bool Pad::Impl::push( const std::any &payload ) {
+  std::unique_lock lock { m_queue_mut };
+  m_queue.push_back( payload );
+  return true;
 }
 
 }  // namespace sim

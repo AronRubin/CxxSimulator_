@@ -18,7 +18,7 @@ public:
   SourceModel &operator=( SourceModel &other ) = default;
 
   // entry point for the model
-  ActivitySpec startActivity() override;
+  void startActivity( Instance &instance, Activity &activity ) override;
 };
 
 class QueueModel : public Model {
@@ -31,7 +31,7 @@ public:
   QueueModel &operator=( QueueModel &other ) = default;
 
   // entry point for the model
-  ActivitySpec startActivity() override;
+  void startActivity( Instance &instance, Activity &activity ) override;
 };
 
 class ProcessorModel : public Model {
@@ -44,7 +44,7 @@ public:
   ProcessorModel &operator=( ProcessorModel &other ) = default;
 
   // entry point for the model
-  ActivitySpec startActivity() override;
+  void startActivity( Instance &instance, Activity &activity ) override;
 };
 
 class DelayModel : public Model {
@@ -57,7 +57,7 @@ public:
   DelayModel &operator=( DelayModel &other ) = default;
 
   // entry point for the model
-  ActivitySpec startActivity() override;
+  void startActivity( Instance &instance, Activity &activity ) override;
 };
 
 class MultiplexModel : public Model {
@@ -70,7 +70,7 @@ public:
   MultiplexModel &operator=( MultiplexModel &other ) = default;
 
   // entry point for the model
-  ActivitySpec startActivity() override;
+  void startActivity( Instance &instance, Activity &activity ) override;
 };
 
 class SinkModel : public Model {
@@ -83,7 +83,7 @@ public:
   SinkModel &operator=( SinkModel &other ) = default;
 
   // entry point for the model
-  ActivitySpec startActivity() override;
+  void startActivity( Instance &instance, Activity &activity ) override;
 };
 
 } // namespace queuing

@@ -30,18 +30,51 @@ struct SimulatorTest : testing::Test {
   }
 };
 
-class TestModel : public sim::Model {
+class EmptyModel : public sim::Model {
 public:
-  TestModel() : Model( "TestModel" ) {}
+  EmptyModel() : Model( "EmptyModel" ) {
+  }
 
-  sim::ActivitySpec startActivity() override {
-    return { "start", "start", []( sim::Instance &ins, sim::Activity &act ) {} };
+  void startActivity( sim::Instance &, sim::Activity & ) override {
   }
 };
 
 TEST_F( SimulatorTest, model_adoption ) {
-  sim::Simulator::getInstance().addModel<TestModel>();
+  sim::Simulator::getInstance().addModel<EmptyModel>();
 
-  EXPECT_TRUE( sim::Simulator::getInstance().model( "TestModel" ) );
+  EXPECT_TRUE( sim::Simulator::getInstance().model( "EmptyModel" ) );
+}
+
+class LoopbackModel : public sim::Model {
+public:
+  LoopbackModel() : Model( "LoopbackModel" ) {
+    addActivitySpec( {
+        "sink",
+        []( sim::Instance &instance, sim::Activity &activity ) {
+          while( activity.state() == sim::Activity::State::RUN ) {
+            activity.padReceive( "in" );
+          }
+        },
+        "in::receive" } );
+    addPadSpec( { "in", { sim::PadSpec::Flag::CAN_INPUT }, {} } );
+    addPadSpec( { "out", { sim::PadSpec::Flag::CAN_OUTPUT }, {} } );
+  }
+
+  void startActivity( sim::Instance &instance, sim::Activity &activity ) override {
+    
+    auto duty_cycle = instance.parameter<double>( "duty_cycle" ).value_or( 2.0 );
+    sim::Clock::duration interval { static_cast<sim::Clock::duration::rep>( sim::Clock::period::den / duty_cycle ) };
+    while( activity.state() == sim::Activity::State::RUN ) {
+      instance.pad( "out" );
+      activity.waitFor( interval );
+    }
+  }
+
+};
+
+TEST_F( SimulatorTest, instancing ) {
+  sim::Simulator::getInstance().addModel<LoopbackModel>();
+
+  EXPECT_TRUE( sim::Simulator::getInstance().model( "LoopbackModel" ) );
 }
 

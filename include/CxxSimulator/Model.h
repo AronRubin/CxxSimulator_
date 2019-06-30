@@ -30,8 +30,22 @@ class Instance;
 struct PadSpec {
   enum class Flag : uint32_t { CAN_INPUT, CAN_OUTPUT, IS_TEMPLATE, BY_REQUEST, COUNT__ };
 
+  PadSpec() = default; // results in an invalid/null padspec
+  PadSpec(
+      const std::string &name,
+      const acpp::flagset<Flag> &flags = { Flag::CAN_INPUT, Flag::CAN_OUTPUT },
+      const PropertyList &parameters = {} ) :
+      name( name ),
+      flags( flags ),
+      properties( properties ) {}
+  ~PadSpec() noexcept = default;
+  PadSpec( const PadSpec &other ) = default;
+  PadSpec( PadSpec &&other ) noexcept = default;
+  PadSpec &operator=( const PadSpec &other ) = default;
+  PadSpec &operator=( PadSpec &&other ) = default;
+
   std::string name;
-  acpp::flagset<Flag> flags = { Flag::CAN_INPUT, Flag::CAN_OUTPUT };
+  acpp::flagset<Flag> flags;
   PropertyList properties;
 };
 
@@ -40,6 +54,20 @@ struct PadSpec {
  */
 struct ActivitySpec {
   using ActivityFunc = std::function<void( Instance &, Activity & )>;
+
+  ActivitySpec() = default; // this will make an invalid/null spec
+  ActivitySpec(
+      const std::string &name,
+      ActivityFunc func,
+      const std::string &triggering_event = {} ) :
+      name( name ),
+      triggering_event( triggering_event ),
+      function( func ) {}
+  ~ActivitySpec() noexcept = default;
+  ActivitySpec( const ActivitySpec &other ) = default;
+  ActivitySpec( ActivitySpec &&other ) noexcept = default;
+  ActivitySpec &operator=( const ActivitySpec &other ) = default;
+  ActivitySpec &operator=( ActivitySpec &&other ) noexcept = default;
 
   std::string name;
   std::string triggering_event;
@@ -63,7 +91,7 @@ public:
   ActivitySpec activity( const std::string &name );
 
   // entry point for the model
-  virtual ActivitySpec startActivity() = 0;
+  virtual void startActivity( Instance &instance, Activity &activity ) = 0;
   
   // pad spec factory
   void addPadSpec( const PadSpec &spec );

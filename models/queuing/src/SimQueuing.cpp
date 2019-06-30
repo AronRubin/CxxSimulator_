@@ -19,54 +19,56 @@ struct ModelRegistrar {
 static ModelRegistrar simQueuingRegistrar;
 
 SourceModel::SourceModel() : Model("SourceModel") {
+  addPadSpec( { "out", { PadSpec::Flag::CAN_OUTPUT }, {} } );
 }
 
-ActivitySpec SourceModel::startActivity() {
+void SourceModel::startActivity( Instance &instance, Activity &activity ) {
   using namespace std::chrono_literals;
-  return {
-    "start",
-    "start",
-    []( Instance &ins, Activity &act ) {
-      while( act.state() == Activity::State::RUN ) {
-        act.waitFor( 1s );
-      }
-    }
-  };
+  auto duty_cycle = instance.parameter<double>( "duty_cycle" ).value_or( 2.0 );
+  Clock::duration interval { static_cast<Clock::duration::rep>( Clock::period::den / duty_cycle ) };
+  while( activity.state() == Activity::State::RUN ) {
+    instance.pad( "out" );
+    activity.waitFor( interval );
+  }
 }
 
 QueueModel::QueueModel() : Model("QueueModel") {
+  addPadSpec( { "in", { PadSpec::Flag::CAN_INPUT }, {} } );
+  addPadSpec( { "out", { PadSpec::Flag::CAN_OUTPUT }, {} } );
 }
 
-ActivitySpec QueueModel::startActivity() {
-  return { "start", "start", []( Instance &ins, Activity &act ) { } };
+void QueueModel::startActivity( Instance &instance, Activity &activity ) {
 }
 
 ProcessorModel::ProcessorModel() : Model("ProcessorModel") {
+  addPadSpec( { "in", { PadSpec::Flag::CAN_INPUT }, {} } );
+  addPadSpec( { "out", { PadSpec::Flag::CAN_OUTPUT }, {} } );
 }
 
-ActivitySpec ProcessorModel::startActivity() {
-  return { "start", "start", []( Instance &ins, Activity &act ) { } };
+void ProcessorModel::startActivity( Instance &instance, Activity &activity ) {
 }
 
 DelayModel::DelayModel() : Model("DelayModel") {
+  addPadSpec( { "in", { PadSpec::Flag::CAN_INPUT }, {} } );
+  addPadSpec( { "out", { PadSpec::Flag::CAN_OUTPUT }, {} } );
 }
 
-ActivitySpec DelayModel::startActivity() {
-  return { "start", "start", [this]( Instance &ins, Activity &act ) { } };
+void DelayModel::startActivity( Instance &instance, Activity &activity ) {
 }
 
 MultiplexModel::MultiplexModel() : Model("MultiplexModel") {
+  addPadSpec( { "in", { PadSpec::Flag::CAN_INPUT }, {} } );
+  addPadSpec( { "out", { PadSpec::Flag::CAN_OUTPUT, PadSpec::Flag::BY_REQUEST }, {} } );
 }
 
-ActivitySpec MultiplexModel::startActivity() {
-  return { "start", "start", [this]( Instance &ins, Activity &act ) { } };
+void MultiplexModel::startActivity( Instance &instance, Activity &activity ) {
 }
 
 SinkModel::SinkModel() : Model("SinkModel") {
+  addPadSpec( { "in", { PadSpec::Flag::CAN_INPUT }, {} } );
 }
 
-ActivitySpec SinkModel::startActivity() {
-  return { "start", "start", [this]( Instance &ins, Activity &act ) { } };
+void SinkModel::startActivity( Instance &instance, Activity &activity ) {
 }
 
 

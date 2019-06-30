@@ -29,27 +29,26 @@ class Pad;
 
 class Pad : public std::enable_shared_from_this<Pad> {
 public:
-  Pad();
-  Pad( Pad &&other ) noexcept;
-  Pad &operator=( Pad &&other ) noexcept;
-  ~Pad();
+  Pad( std::shared_ptr<Instance> instance, const PadSpec &spec, const std::string &name );
+  Pad( Pad &&other );
+  Pad &operator=( Pad &&other );
+  ~Pad() noexcept;
   
   PadSpec spec() const;
   std::string name() const;
   std::shared_ptr<Instance> owner() const;
   std::shared_ptr<Pad> peer() const;
+  size_t available() const;
 
   bool connect( std::shared_ptr<Instance> instance, const std::string &pad_name );
   
-  size_t available() const;
-  acpp::value_result<std::any> receive( const std::string &name );
-  acpp::value_result<std::any> receive( const std::string &name, sim::Clock::duration timeout );
-  acpp::void_result<> send( const std::any &payload );
-  acpp::void_result<> send( std::any &&payload );
 
 private:
   class Impl;
   std::unique_ptr<Impl> impl;
+
+public:
+  class Private;
 };
 
 class Activity : public std::enable_shared_from_this<Activity> {
@@ -57,19 +56,25 @@ public:
   enum class State : uint32_t { INIT, RUN, PAUSE, DONE };
 
   Activity( std::shared_ptr<Instance> instance, const ActivitySpec &spec, const std::string &name );
-  ~Activity();
-  Activity( Activity &&other ) noexcept;
-  Activity &operator=( Activity &&other ) noexcept;
+  Activity( Activity &&other );
+  Activity &operator=( Activity &&other );
+  ~Activity() noexcept;
 
   ActivitySpec spec() const;
   State state() const;
   std::shared_ptr<Instance> owner() const;
   std::string name() const;
 
+/**
+ * @brief 
+ */
   void waitFor( sim::Clock::duration dur );
   void waitUntil( const sim::Clock::time_point &time );
   bool waitOn( const std::string &signal_name );
   bool waitOn( const std::string &signal_name, sim::Clock::duration timeout );
+  acpp::value_result<std::any> padReceive( const std::string &pad_name );
+  acpp::value_result<std::any> padReceive( const std::string &pad_name, sim::Clock::duration timeout );
+  bool padSend( const std::string &pad_name, const std::any &payload );
 
 private:
   class Impl;
@@ -83,9 +88,9 @@ public:
       std::shared_ptr<Model> model,
       const std::string &name,
       const PropertyList &parameters );
-  Instance( Instance &&other ) noexcept;
-  Instance &operator=( Instance &&other ) noexcept;
-  ~Instance();
+  Instance( Instance &&other );
+  Instance &operator=( Instance &&other );
+  ~Instance() noexcept;
 
   std::string name() const;
   std::shared_ptr<Model> model() const;

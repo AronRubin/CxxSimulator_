@@ -26,7 +26,7 @@ struct Model::Impl {
   Impl &operator=( Impl &&other ) noexcept = default;
   
   std::string m_name;
-  std::unordered_map<std::string, acpp::unstructured_value> m_parameters;
+  PropertyList m_parameters;
   std::unordered_map<std::string, ActivitySpec> m_activity_specs;
   std::unordered_map<std::string, PadSpec> m_pad_specs;
 };
@@ -41,6 +41,13 @@ void Model::addPadSpec( const PadSpec &spec ) {
     return;
   }
   impl->m_pad_specs[spec.name] = spec;
+}
+
+void Model::addActivitySpec( const ActivitySpec &spec ) {
+  if (spec.name.empty()) {
+    return;
+  }
+  impl->m_activity_specs[spec.name] = spec;
 }
 
 std::string Model::name() const {
@@ -62,9 +69,6 @@ PadSpec Model::pad( const std::string &name ) {
   }
   return iter->second;
 }
-Activity::~Activity() = default;
-Activity::Activity( Activity &&other ) noexcept = default;
-Activity &Activity::operator=( Activity &&other ) noexcept = default;
 
 std::vector<ActivitySpec> Model::activities() {
   std::vector<ActivitySpec> activities;

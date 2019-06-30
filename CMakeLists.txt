@@ -35,35 +35,17 @@ if(NOT nlohmann_json_POPULATED)
   FetchContent_Populate(nlohmann_json)
 endif()
 
-option(USE_CATCH2_TEST "Use catch2 instead of googletest." OFF)
+FetchContent_Declare(
+  googletest
+  GIT_REPOSITORY https://github.com/google/googletest.git
+  GIT_TAG        release-1.8.1
+)
 
-if(USE_CATCH2_TEST)
-  FetchContent_Declare(
-    Catch2
-    GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-    GIT_TAG        v2.8.0
-  )
-  FetchContent_GetProperties(Catch2)
-  if(NOT catch2_POPULATED)
-    FetchContent_Populate(Catch2)
-    add_subdirectory(${catch2_SOURCE_DIR} ${catch2_BINARY_DIR} EXCLUDE_FROM_ALL)
-    list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/contrib)
-  endif()
-else(USE_CATCH2_TEST)
-  FetchContent_Declare(
-    googletest
-    GIT_REPOSITORY https://github.com/google/googletest.git
-    GIT_TAG        release-1.8.1
-  )
-
-  FetchContent_GetProperties(googletest)
-  if(NOT googletest_POPULATED)
-    FetchContent_Populate(googletest)
-    add_subdirectory(${googletest_SOURCE_DIR} ${googletest_BINARY_DIR} EXCLUDE_FROM_ALL)
-    # list(APPEND CMAKE_MODULE_PATH ${googletest_BINARY_DIR}/generated)
-    # find_package(GTest)
-  endif()
-endif(USE_CATCH2_TEST)
+FetchContent_GetProperties(googletest)
+if(NOT googletest_POPULATED)
+  FetchContent_Populate(googletest)
+  add_subdirectory(${googletest_SOURCE_DIR} ${googletest_BINARY_DIR} EXCLUDE_FROM_ALL)
+endif()
 
 enable_testing()
 
@@ -110,21 +92,13 @@ target_link_libraries(CxxSimulatorExec CxxSimulator)
 add_subdirectory(models/queuing)
 
 include(CTest)
+include(GoogleTest)
 
 add_executable(CxxSimulatorTest src/CxxSimulatorTest.cpp)
 target_include_directories(CxxSimulatorTest PRIVATE include)
 target_link_libraries(CxxSimulatorTest PUBLIC CxxSimulator)
-if(USE_CATCH2_TEST)
-  target_link_libraries(CxxSimulatorTest PUBLIC Catch2::Catch2)
-  target_compile_definitions(CxxSimulatorTest PUBLIC USE_CATCH2)
-  include(Catch)
-  catch_discover_tests(CxxSimulatorTest)
-else(USE_CATCH2_TEST)
-  include(GoogleTest)
-  target_link_libraries(CxxSimulatorTest PUBLIC gtest_main gmock)
-  gtest_discover_tests(CxxSimulatorTest)
-endif(USE_CATCH2_TEST)
-
+target_link_libraries(CxxSimulatorTest PUBLIC gtest gtest_main gmock)
+gtest_discover_tests(CxxSimulatorTest)
 
 include(FeatureSummary)
 feature_summary(WHAT ALL)

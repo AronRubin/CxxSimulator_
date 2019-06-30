@@ -21,6 +21,11 @@ struct Instance::Private {
       const std::string &name );
 };
 
+struct Pad::Private {
+  static acpp::value_result<std::any> pull( std::shared_ptr<Pad> pad );
+  static bool push( std::shared_ptr<Pad> pad, const std::any &payload );
+};
+
 }  // namespace sim
 
 #endif  // INSTANCE_P_H_INCLUDED

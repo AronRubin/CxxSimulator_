@@ -37,7 +37,7 @@ public:
   // design choice: no throw
   
   /**
-   * Load a topology from a JSON description
+   * @brief Load a topology from a JSON description
    * @param topo_json The topology as a JSON string
    * @return the created simulation or failure as a value_result
    */
@@ -46,15 +46,13 @@ public:
   // design choice: throw
   
   /**
-   * Register a model for instancing
-   * 
+   * @brief Register a model for instancing
    * @param model a model
    */
   void addModel( std::shared_ptr<Model> model );
 
   /**
-   * Register a model for instancing
-   * 
+   * @brief Register a model for instancing
    * @tparam ModelType a model type
    */
   template <typename ModelType>

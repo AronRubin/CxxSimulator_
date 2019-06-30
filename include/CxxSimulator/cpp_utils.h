@@ -141,22 +141,24 @@ struct flagset {
 
   using flag_type = EnumT;
   using base_type = typename std::underlying_type<flag_type>::type;
-  
+  static constexpr base_type one { 1 }; // avoid narrowing
+
   flagset() noexcept = default;
   flagset( const flagset &other ) noexcept = default;
   flagset & operator=( const flagset &other ) noexcept = default;
   flagset( flagset &&other ) noexcept = default;
   flagset &operator=( flagset &&other ) noexcept = default;
 
-  constexpr flagset( const flag_type &flag ) noexcept : bitset{ (1 << static_cast<base_type>( flag )) } {
+  constexpr flagset( const flag_type &flag ) noexcept :
+      bitset{ (one << static_cast<base_type>( flag )) } {
   }
 
   template <typename... Flags,
       typename = typename std::enable_if_t<std::conjunction_v<std::is_same<Flags, flag_type>...> > >
   constexpr flagset( const flag_type &flag1, const Flags&... flags ) noexcept :
       bitset{ (unsigned long long)
-              ((1 << static_cast<base_type>( flag1 )) |
-               ((1 << static_cast<base_type>( flags )) | ...)) } {
+              ((one << static_cast<base_type>( flag1 )) |
+               ((one << static_cast<base_type>( flags )) | ...)) } {
   }
 
   flagset &operator|=( const flagset &other ) {
@@ -168,7 +170,7 @@ struct flagset {
     return *this;
   }
   flagset &operator=( const flag_type &flag ) {
-    bitset = (1 << static_cast<base_type>( flag ));
+    bitset = (one << static_cast<base_type>( flag ));
     return *this;
   }
   flagset &operator+=( const flag_type &flag ) {
