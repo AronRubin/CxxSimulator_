@@ -31,13 +31,12 @@ struct PadSpec {
   enum class Flag : uint32_t { CAN_INPUT, CAN_OUTPUT, IS_TEMPLATE, BY_REQUEST, COUNT__ };
 
   PadSpec() = default; // results in an invalid/null padspec
-  PadSpec(
-      const std::string &name,
-      const acpp::flagset<Flag> &flags = { Flag::CAN_INPUT, Flag::CAN_OUTPUT },
+  PadSpec( const std::string &name,
+      const acpp::flagset<Flag> &flags = {Flag::CAN_INPUT, Flag::CAN_OUTPUT},
       const PropertyList &parameters = {} ) :
       name( name ),
       flags( flags ),
-      properties( properties ) {}
+      parameters( parameters ) {}
   ~PadSpec() noexcept = default;
   PadSpec( const PadSpec &other ) = default;
   PadSpec( PadSpec &&other ) noexcept = default;
@@ -46,7 +45,7 @@ struct PadSpec {
 
   std::string name;
   acpp::flagset<Flag> flags;
-  PropertyList properties;
+  PropertyList parameters;
 };
 
 /**
