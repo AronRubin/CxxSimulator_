@@ -33,12 +33,14 @@ struct SimEvent {
       const std::string &spec,
       const std::string &name,
       const std::string &owner = {},
+      const PropertyList &parameters = {},
       std::any payload = {} ) :
       type{ type },
       time{ time },
       spec{ spec },
       name{ name },
       owner{ owner },
+      parameters{ parameters },
       payload{ payload } {}
   ~SimEvent() = default;
   SimEvent( SimEvent & ) = default;
@@ -51,6 +53,7 @@ struct SimEvent {
   std::string spec;
   std::string name;
   std::string owner;
+  PropertyList parameters;
   std::any payload;
 
   friend bool operator<( const SimEvent &eva, const SimEvent &evb ) {
@@ -115,6 +118,11 @@ struct Simulation::Impl {
       const std::string &signal_name,
       const Clock::time_point &time = {} );
 
+  std::future<bool> activityPadReceive(
+      std::shared_ptr<Activity> activity,
+      const std::string &pad_name,
+      const Clock::time_point &time = {} );
+
   void handleStateChange( const SimEvent &event );
   void handleSpawnInstance( const SimEvent &event );
   void handleSpawnActivity( const SimEvent &event );
@@ -171,7 +179,7 @@ acpp::void_result<> Simulation::Impl::insertSpawnInstance(
     event_time = m_simtime;
   }
   // TODO fix parameter passing
-  m_events.emplace_back( SimEvent::Type::SPAWN_INSTANCE, event_time, model, name, model /*, parameters */ );
+  m_events.emplace_back( SimEvent::Type::SPAWN_INSTANCE, event_time, model, name, model, parameters );
   std::push_heap( m_events.begin(), m_events.end(), std::greater<SimEvent>{} );
 
   return {};
@@ -260,6 +268,40 @@ std::future<bool> Simulation::Private::activityWaitOn(
     return {}; // TODO return error
   }
   return simulation->impl->activityWaitOn( activity, signal_name, time );
+}
+
+std::future<bool> Simulation::Impl::activityPadReceive(
+    std::shared_ptr<Activity> activity,
+    const std::string &pad_name,
+    const Clock::time_point &time ) {
+  // TODO lock here
+  // TODO check that event_time is >= simtime
+  if ( time.time_since_epoch() != Clock::duration::zero() ) {
+    m_events.emplace_back(
+        SimEvent::Type::RESUME_ACTIVITY,
+        time,
+        pad_name,
+        activity->name(),
+        activity->owner()->name() );
+    std::push_heap( m_events.begin(), m_events.end(), std::greater<SimEvent>{} );
+  }
+  auto &wact = m_waiting_activities[activity];
+  wact = { pad_name, time };
+  auto &promise = std::get<0>( wact.promise );
+
+  // it seems copy elision is not assumed here
+  return std::move( promise.get_future() );
+}
+
+std::future<bool> Simulation::Private::activityPadReceive(
+    std::shared_ptr<Simulation> simulation,
+    std::shared_ptr<Activity> activity,
+    const std::string &pad_name,
+    const Clock::time_point &time ) {
+  if ( !simulation || !activity ) {
+    return {}; // TODO return error
+  }
+  return simulation->impl->activityPadReceive( activity, pad_name, time );
 }
 
 // global parameters
