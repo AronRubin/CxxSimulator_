@@ -15,6 +15,7 @@
 #include <list>
 #include <any>
 #include <variant>
+#include <queue>
 
 namespace sim {
 
@@ -62,6 +63,19 @@ struct SimEvent {
   friend bool operator>( const SimEvent &eva, const SimEvent &evb ) {
     return eva.time > evb.time;
   }
+};
+
+/**
+ * @brief Timeline keeps track of all scheduled events in time-order.
+ * This class is implemented as a priority queue. The std::priority_queue would
+ * be used but it does not allow for iteration or search. 
+ */
+class Timeline {
+public:
+  Timeline() noexcept;
+
+private:
+  std::deque<SimEvent> m_events;
 };
 
 struct WaitingActivity {
@@ -118,6 +132,14 @@ struct Simulation::Impl {
       const std::string &signal_name,
       const Clock::time_point &time = {} );
 
+  /**
+   * @brief Schedule a Pad receiving event in the simulator
+   * 
+   * @param activity the activity owning the pad
+   * @param pad_name the name of the pad which will receive or timeout
+   * @param time the time at which the pad will receive or timeout
+   * @return std::future<bool> to wait on
+   */
   std::future<bool> activityPadReceive(
       std::shared_ptr<Activity> activity,
       const std::string &pad_name,

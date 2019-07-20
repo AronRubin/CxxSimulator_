@@ -285,17 +285,23 @@ bool Activity::waitOn( const std::string &signal_name, sim::Clock::duration time
 acpp::value_result<std::any> Activity::Impl::padReceive( const std::string &pad_name ) {
   // TODO lock
   if ( m_state != State::RUN ) {
-    return { {}, "already running" }; // Activity already waiting
+    return { {}, "already waiting" }; // Activity already waiting
   }
-  /* TODO stub
+  auto instance = m_instance.lock();
+  auto pad = m_instance.lock()->pad( pad_name );
+  if (!pad) {
+    return { {}, "no pad: " + pad_name };
+  }
   m_state = State::PAUSE;
-  auto future = Simulation::Private::activityWaitPad(
+  auto future = Simulation::Private::activityPadReceive(
       m_instance.lock()->owner(),
       m_activity.shared_from_this(),
       pad_name );
-  return future.get();
-  */
- return { {}, "not implemented" };
+  auto rv = future.get();
+  if (!rv) {
+    return { {}, "receive canceled" };
+  }
+  return Pad::Private::pull( pad );
 }
 
 acpp::value_result<std::any> Activity::Impl::padReceive( const std::string &pad_name, sim::Clock::duration timeout ) {
