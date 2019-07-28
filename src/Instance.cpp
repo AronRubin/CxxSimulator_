@@ -181,8 +181,7 @@ struct Activity::Impl {
   void waitUntil( const sim::Clock::time_point &time );
   bool waitOn( const std::string &name );
   bool waitOn( const std::string &name, sim::Clock::duration timeout );
-  acpp::value_result<std::any> padReceive( const std::string &pad_name );
-  acpp::value_result<std::any> padReceive( const std::string &pad_name, sim::Clock::duration timeout );
+  acpp::value_result<std::any> padReceive( const std::string &pad_name, sim::Clock::time_point time );
   bool padSend( const std::string &pad_name, const std::any &payload );
 
   void workerFunc();
@@ -282,21 +281,27 @@ bool Activity::waitOn( const std::string &signal_name, sim::Clock::duration time
   return impl->waitOn( signal_name, timeout );
 }
 
-acpp::value_result<std::any> Activity::Impl::padReceive( const std::string &pad_name ) {
-  // TODO lock
+acpp::value_result<std::any> Activity::Impl::padReceive( const std::string &pad_name, sim::Clock::time_point time ) {
+  auto instance = m_instance.lock();
+  auto pad = m_instance.lock()->pad( pad_name );
+  if ( !pad ) {
+    return {{}, "no pad: " + pad_name};
+  }
+  
+  if ( pad->available() > 0 ) {
+    return Pad::Private::pull( pad );
+  }
+  
+  // TODO lock state
   if ( m_state != State::RUN ) {
     return { {}, "already waiting" }; // Activity already waiting
   }
-  auto instance = m_instance.lock();
-  auto pad = m_instance.lock()->pad( pad_name );
-  if (!pad) {
-    return { {}, "no pad: " + pad_name };
-  }
   m_state = State::PAUSE;
   auto future = Simulation::Private::activityPadReceive(
-      m_instance.lock()->owner(),
+      instance->owner(),
       m_activity.shared_from_this(),
-      pad_name );
+      pad_name,
+      time );
   auto rv = future.get();
   if (!rv) {
     return { {}, "receive canceled" };
@@ -304,33 +309,19 @@ acpp::value_result<std::any> Activity::Impl::padReceive( const std::string &pad_
   return Pad::Private::pull( pad );
 }
 
-acpp::value_result<std::any> Activity::Impl::padReceive( const std::string &pad_name, sim::Clock::duration timeout ) {
-  // TODO lock
-  if ( m_state != State::RUN ) {
-    return { {}, "already running" }; // Activity already waiting
-  }
-  /* TODO stub
-  m_state = State::PAUSE;
-  auto instance = m_instance.lock();
-  auto future = Simulation::Private::activityWaitOn(
-      m_instance.lock()->owner(),
-      m_activity.shared_from_this(),
-      signal_name,
-      instance->owner()->simtime() + timeout );
-  */
-  return { {}, "not implemented" };
-}
-
 bool Activity::Impl::padSend( const std::string &pad_name, const std::any &payload ) {
-  // TODO implement
-  return false;
+  auto pad = m_instance.lock()->pad( pad_name );
+  if ( !(pad && pad->peer()) ) {
+    return false;
+  }
+  return Pad::Private::push( pad->peer(), payload );
 }
 
 acpp::value_result<std::any> Activity::padReceive( const std::string &pad_name ) {
-  return impl->padReceive( pad_name );
+  return impl->padReceive( pad_name, {} );
 }
 acpp::value_result<std::any> Activity::padReceive( const std::string &pad_name, sim::Clock::duration timeout ) {
-  return impl->padReceive( pad_name, timeout );
+  return impl->padReceive( pad_name, owner()->owner()->simtime() + timeout );
 }
 bool Activity::padSend( const std::string &pad_name, const std::any &payload ) {
   return impl->padSend( pad_name, payload );

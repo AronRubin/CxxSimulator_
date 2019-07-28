@@ -33,6 +33,10 @@ struct Simulation::Private {
       std::shared_ptr<Activity> activity,
       const std::string &pad_name,
       const Clock::time_point &time = {} );
+  static std::future<bool> padSend( std::shared_ptr<Simulation> simulation,
+      std::shared_ptr<Pad> pad,
+      const std::any &payload,
+      const Clock::time_point &time = {} );
 };
 
 } // namespace sim

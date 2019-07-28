@@ -3,6 +3,15 @@
 #include <gmock/gmock.h>
 
 #include <CxxSimulator/Simulator.h>
+#include "Timeline.h"
+
+TEST( heap, remove ) {
+  std::vector<int> inputs { 5, 1, 9, 11, 4, 10, 2 };
+  std::make_heap( inputs.begin(), inputs.end(), std::greater<int>{} );
+  EXPECT_TRUE( std::is_heap( inputs.begin(), inputs.end(), std::greater<int>{} ) );
+  sim::heap_util::heap_remove( inputs.begin(), inputs.end(), inputs.begin() + 4, std::greater<int>{} );
+  EXPECT_TRUE( std::is_heap( inputs.begin(), inputs.end(), std::greater<int>{} ) );
+}
 
 TEST( flagset, metas ) {
   enum class Flags : uint32_t { ONE, TWO, THREE, COUNT__ };

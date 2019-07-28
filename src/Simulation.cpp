@@ -4,6 +4,7 @@
 #include <CxxSimulator/Simulator.h>
 #include "Simulation_p.h"
 #include "Instance_p.h"
+#include "Timeline.h"
 
 #include <map>
 #include <vector>
@@ -20,7 +21,7 @@
 namespace sim {
 
 struct SimEvent {
-  enum class Type {
+  enum class Type : uint8_t {
     STATE_CHANGE,
     SPAWN_INSTANCE,
     SPAWN_ACTIVITY,
@@ -65,19 +66,6 @@ struct SimEvent {
   }
 };
 
-/**
- * @brief Timeline keeps track of all scheduled events in time-order.
- * This class is implemented as a priority queue. The std::priority_queue would
- * be used but it does not allow for iteration or search. 
- */
-class Timeline {
-public:
-  Timeline() noexcept;
-
-private:
-  std::deque<SimEvent> m_events;
-};
-
 struct WaitingActivity {
   using PromiseVariant = std::variant<std::promise<bool>, std::promise<std::any>>;
 
@@ -105,7 +93,7 @@ struct Simulation::Impl {
   State m_pending_state = State::INIT;
   PropertyList m_parameters;
   std::map<std::string, std::shared_ptr<Instance>> m_instances;
-  std::deque<SimEvent> m_events;
+  Timeline<SimEvent> m_events;
   std::map<std::shared_ptr<Activity>, WaitingActivity> m_waiting_activities;
   std::thread m_worker;
   std::mutex m_state_mut;
@@ -201,8 +189,7 @@ acpp::void_result<> Simulation::Impl::insertSpawnInstance(
     event_time = m_simtime;
   }
   // TODO fix parameter passing
-  m_events.emplace_back( SimEvent::Type::SPAWN_INSTANCE, event_time, model, name, model, parameters );
-  std::push_heap( m_events.begin(), m_events.end(), std::greater<SimEvent>{} );
+  m_events.emplace( SimEvent::Type::SPAWN_INSTANCE, event_time, model, name, model, parameters );
 
   return {};
 }
@@ -222,8 +209,7 @@ acpp::void_result<> Simulation::Impl::insertSpawnActivity(
   if ( time.time_since_epoch() == Clock::duration::zero() ) {
     event_time = m_simtime;
   }
-  m_events.emplace_back( SimEvent::Type::SPAWN_ACTIVITY, event_time, spec_name, name, instance );
-  std::push_heap( m_events.begin(), m_events.end(), std::greater<SimEvent>{} );
+  m_events.emplace( SimEvent::Type::SPAWN_ACTIVITY, event_time, spec_name, name, instance );
 
   return {};
 }
@@ -237,12 +223,11 @@ std::future<bool> Simulation::Impl::insertResumeActivity(
   if ( time.time_since_epoch() == Clock::duration::zero() ) {
     event_time = m_simtime;
   }
-  m_events.emplace_back(
+  m_events.emplace(
       SimEvent::Type::RESUME_ACTIVITY,
       event_time,
       activity->name(),
       activity->owner()->name() );
-  std::push_heap( m_events.begin(), m_events.end(), std::greater<SimEvent>{} );
   auto &wact = m_waiting_activities[activity];
   wact = {event_time};
   auto &promise = std::get<0>( wact.promise );
@@ -265,13 +250,12 @@ std::future<bool> Simulation::Impl::activityWaitOn(
   // TODO lock here
   // TODO check that event_time is >= simtime
   if ( time.time_since_epoch() != Clock::duration::zero() ) {
-    m_events.emplace_back(
+    m_events.emplace(
         SimEvent::Type::RESUME_ACTIVITY,
         time,
         std::string {},
         activity->name(),
         activity->owner()->name() );
-    std::push_heap( m_events.begin(), m_events.end(), std::greater<SimEvent>{} );
   }
   auto &wact = m_waiting_activities[activity];
   wact = { signal_name, time };
@@ -299,13 +283,12 @@ std::future<bool> Simulation::Impl::activityPadReceive(
   // TODO lock here
   // TODO check that event_time is >= simtime
   if ( time.time_since_epoch() != Clock::duration::zero() ) {
-    m_events.emplace_back(
+    m_events.emplace(
         SimEvent::Type::RESUME_ACTIVITY,
         time,
         pad_name,
         activity->name(),
         activity->owner()->name() );
-    std::push_heap( m_events.begin(), m_events.end(), std::greater<SimEvent>{} );
   }
   auto &wact = m_waiting_activities[activity];
   wact = { pad_name, time };
@@ -437,9 +420,7 @@ void Simulation::Impl::step() {
   if ( m_events.empty() ) {
     setState( State::DONE );
   }
-  std::pop_heap( m_events.begin(), m_events.end(), std::greater<SimEvent>{} );
-  auto event = m_events.back();
-  m_events.pop_back();
+  auto event = m_events.take();
 
   if ( event.time > m_simtime ) {
     m_simtime = event.time;
