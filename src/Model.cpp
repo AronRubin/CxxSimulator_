@@ -28,7 +28,9 @@ struct Model::Impl {
   std::string m_name;
   PropertyList m_parameters;
   std::unordered_map<std::string, ActivitySpec> m_activity_specs;
+#if ACPP_LESSON > 3
   std::unordered_map<std::string, PadSpec> m_pad_specs;
+#endif // ACPP_LESSON > 3
 };
 
 Model::Model( const std::string &name ) : impl( new Impl{ name } ) {
@@ -36,11 +38,11 @@ Model::Model( const std::string &name ) : impl( new Impl{ name } ) {
 
 Model::~Model() = default;
 
-void Model::addPadSpec( const PadSpec &spec ) {
-  if (spec.name.empty()) {
-    return;
-  }
-  impl->m_pad_specs[spec.name] = spec;
+std::shared_ptr<Instance> Model::makeInstance(
+    std::shared_ptr<Simulation> sim,
+    const std::string &name,
+    const PropertyList &parameters ) {
+  return std::make_shared<Instance>( sim, this->shared_from_this(), name, parameters );
 }
 
 void Model::addActivitySpec( const ActivitySpec &spec ) {
@@ -52,22 +54,6 @@ void Model::addActivitySpec( const ActivitySpec &spec ) {
 
 std::string Model::name() const {
   return impl->m_name;
-}
-
-std::vector<PadSpec> Model::pads() {
-  std::vector<PadSpec> pads;
-  for ( const auto &padent : impl->m_pad_specs ) {
-    pads.push_back( padent.second );
-  }
-  return pads;
-}
-
-PadSpec Model::pad( const std::string &name ) {
-  auto iter = impl->m_pad_specs.find( name );
-  if ( iter == impl->m_pad_specs.end() ) {
-    return {};
-  }
-  return iter->second;
 }
 
 std::vector<ActivitySpec> Model::activities() {
@@ -85,5 +71,30 @@ ActivitySpec Model::activity( const std::string &name ) {
   }
   return iter->second;
 }
+
+#if ACPP_LESSON > 3
+void Model::addPadSpec( const PadSpec &spec ) {
+  if (spec.name.empty()) {
+    return;
+  }
+  impl->m_pad_specs[spec.name] = spec;
+}
+
+std::vector<PadSpec> Model::pads() {
+  std::vector<PadSpec> pads;
+  for ( const auto &padent : impl->m_pad_specs ) {
+    pads.push_back( padent.second );
+  }
+  return pads;
+}
+
+PadSpec Model::pad( const std::string &name ) {
+  auto iter = impl->m_pad_specs.find( name );
+  if ( iter == impl->m_pad_specs.end() ) {
+    return {};
+  }
+  return iter->second;
+}
+#endif // ACPP_LESSON > 3
 
 }  // namespace sim

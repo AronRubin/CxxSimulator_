@@ -24,6 +24,7 @@ class Model;
 class Activity;
 class Instance;
 
+#if ACPP_LESSON > 3
 /**
  * Structure to specify how a pad is constructed (a connection point for a instance)
  */
@@ -47,21 +48,27 @@ struct PadSpec {
   acpp::flagset<Flag> flags;
   PropertyList parameters;
 };
+#endif // ACPP_LESSON > 3
 
 /**
  * Structure to specify a how an activity is constructed
  */
 struct ActivitySpec {
-  using ActivityFunc = std::function<void( Instance &, Activity & )>;
+  enum class Type {
+    plain,
+    payload,
+    pad
+  };
+  using PlainFunc = std::function<void( Instance &, Activity & )>;
+  using PayloadFunc = std::function<void( Instance &, Activity &, std::any &payload )>;
+  using PadFunc = std::function<void( Instance &, Activity &, Pad &pad )>;
 
   ActivitySpec() = default; // this will make an invalid/null spec
   ActivitySpec(
       const std::string &name,
-      ActivityFunc func,
-      const std::string &triggering_event = {} ) :
+      const Type &type ) :
       name( name ),
-      triggering_event( triggering_event ),
-      function( func ) {}
+      type( type ) {}
   ~ActivitySpec() noexcept = default;
   ActivitySpec( const ActivitySpec &other ) = default;
   ActivitySpec( ActivitySpec &&other ) noexcept = default;
@@ -69,8 +76,7 @@ struct ActivitySpec {
   ActivitySpec &operator=( ActivitySpec &&other ) noexcept = default;
 
   std::string name;
-  std::string triggering_event;
-  ActivityFunc function;
+  Type type;
 };
 
 /**
@@ -84,19 +90,26 @@ public:
   Model &operator=( Model &&other ) = default;
 
   std::string name() const;
-  std::vector<PadSpec> pads();
-  PadSpec pad( const std::string &name );
   std::vector<ActivitySpec> activities();
   ActivitySpec activity( const std::string &name );
+#if ACPP_LESSON > 3
+  std::vector<PadSpec> pads();
+  PadSpec pad( const std::string &name );
+#endif // ACPP_LESSON > 3
 
   // entry point for the model
-  virtual void startActivity( Instance &instance, Activity &activity ) = 0;
-  
-  // pad spec factory
-  void addPadSpec( const PadSpec &spec );
+  virtual void startActivity( std::shared_ptr<Instance> instance, std::shared_ptr<Activity> activity ) = 0;
 
-  // activity spec factory
+  virtual std::shared_ptr<Instance> makeInstance(
+      std::shared_ptr<Simulation> sim,
+      const std::string &name,
+      const PropertyList &parameters );
+
+protected:
   void addActivitySpec( const ActivitySpec &spec );
+#if ACPP_LESSON > 3
+  void addPadSpec( const PadSpec &spec );
+#endif // ACPP_LESSON > 3
 
 private:
   class Impl;

@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <deque>
 #include <list>
+#include <set>
 #include <any>
 #include <variant>
 #include <queue>
@@ -87,6 +88,9 @@ struct Simulation::Impl {
   Impl( Impl &&other ) = default;
   Impl &operator=( Impl &&other ) = default;
   
+  struct ActivityEvents {
+    std::set<SimEvent> events;
+  };
   Simulation &m_simulation; // Simulation owns Simulation::Impl
   Clock::time_point m_simtime;
   State m_state = State::INIT;
@@ -420,7 +424,7 @@ void Simulation::Impl::step() {
   if ( m_events.empty() ) {
     setState( State::DONE );
   }
-  auto event = m_events.take();
+  auto event = m_events.extract();
 
   if ( event.time > m_simtime ) {
     m_simtime = event.time;

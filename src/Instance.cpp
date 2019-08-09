@@ -11,6 +11,7 @@
 #include <memory>
 #include <queue>
 #include <shared_mutex>
+#include <random>
 
 namespace sim {
 
@@ -42,7 +43,7 @@ struct Instance::Impl {
   Impl( Impl &&other ) noexcept = default;
   Impl &operator=( Impl &&other ) noexcept = default;
 
-  void makeStartActivity(); // throws on error because making invariant
+  void makeStartActivity(); // can throw on error because making invariant
 
   bool insertActivity( const std::string &spec, const std::string &name );
 
@@ -52,7 +53,9 @@ struct Instance::Impl {
   std::string m_name;
   PropertyList m_parameters;
   std::unordered_map<std::string, std::shared_ptr<Activity>> m_activities;
+#if ACPP_LESSON > 3
   std::unordered_map<std::string, std::shared_ptr<Pad>> m_pads;
+#endif // ACPP_LESSON > 3
 };
 
 Instance::~Instance() = default;
@@ -79,6 +82,7 @@ std::shared_ptr<Model> Instance::model() const {
   return impl->m_model;
 }
 
+#if ACPP_LESSON > 3
 std::shared_ptr<Pad> Instance::pad( const std::string &name ) const {
   auto iter = impl->m_pads.find( name );
   if ( iter == impl->m_pads.end() ) {
@@ -86,6 +90,7 @@ std::shared_ptr<Pad> Instance::pad( const std::string &name ) const {
   }
   return iter->second;
 }
+#endif // ACPP_LESSON > 3
 
 acpp::unstructured_value Instance::parameter( const std::string &name ) const {
   auto iter = impl->m_parameters.find( name );
@@ -112,12 +117,7 @@ std::shared_ptr<Activity> Instance::activity( const std::string &name ) const {
 }
 
 void Instance::Impl::makeStartActivity() {
-  ActivitySpec spec {
-      "start",
-      [this]( Instance &instance, Activity &activity ) {
-        m_model->startActivity( instance, activity );
-      },
-      "start" };
+  ActivitySpec spec( "start", ActivitySpec::Type::plain );
   auto activity = std::make_shared<Activity>( m_instance.shared_from_this(), spec, "start" );
   if (!activity) {
     throw "could not create start activity";
@@ -178,13 +178,17 @@ struct Activity::Impl {
   std::mutex m_state_mut;
   std::condition_variable m_state_cnd;
 
-  void waitUntil( const sim::Clock::time_point &time );
-  bool waitOn( const std::string &name );
-  bool waitOn( const std::string &name, sim::Clock::duration timeout );
-  acpp::value_result<std::any> padReceive( const std::string &pad_name, sim::Clock::time_point time );
-  bool padSend( const std::string &pad_name, const std::any &payload );
+#if ACPP_LESSON > 3
+  acpp::value_result<std::any> padReceive( const std::string &pad_name, sim::Clock::time_point time, const std::string &activity_name );
+  bool padSend( const std::string &pad_name, const std::any &payload, const std::string &activity_name );
+#endif
 
+#if ACPP_LESSON > 4
+  void waitUntil( const sim::Clock::time_point &time );
+  acpp::value_result<std::any> padReceive( const std::string &pad_name, sim::Clock::time_point time );
+  bool padSend( const std::string &pad_name, const std::any &payload, bool block = false );
   void workerFunc();
+#endif
 };
 
 Activity::Activity( std::shared_ptr<Instance> instance, const ActivitySpec &spec, const std::string &name ) :
@@ -211,6 +215,7 @@ std::string Activity::name() const {
   return impl->m_spec.name;
 }
 
+#if ACPP_LESSON > 4
 void Activity::Impl::workerFunc() {
   if ( !m_spec.function ) {
     return;
@@ -222,7 +227,9 @@ void Activity::Impl::workerFunc() {
     std::invoke( m_spec.function, *m_instance.lock(), m_activity );
   }
 }
+#endif // ACPP_LESSON > 4
 
+#if ACPP_LESSON > 4
 void Activity::Impl::waitUntil( const sim::Clock::time_point &time ) {
   // TODO lock
   if ( m_state != State::RUN ) {
@@ -235,52 +242,49 @@ void Activity::Impl::waitUntil( const sim::Clock::time_point &time ) {
       time );
   future.get();
 }
+#endif // ACPP_LESSON > 4
 
+#if ACPP_LESSON > 4
 void Activity::waitUntil( const sim::Clock::time_point &time ) {
   impl->waitUntil( time );
 }
-
 void Activity::waitFor( sim::Clock::duration dur ) {
   auto instance = impl->m_instance.lock();
   waitUntil( instance->owner()->simtime() + dur );
 }
+#endif // ACPP_LESSON > 4
 
-bool Activity::Impl::waitOn( const std::string &signal_name ) {
-  // TODO lock
-  if ( m_state != State::RUN ) {
-    return false; // Activity already waiting
-  }
-  m_state = State::PAUSE;
-  auto future = Simulation::Private::activityWaitOn(
-      m_instance.lock()->owner(),
-      m_activity.shared_from_this(),
-      signal_name );
-  return future.get();
-}
-
-bool Activity::Impl::waitOn( const std::string &signal_name, sim::Clock::duration timeout ) {
-  // TODO lock
-  if ( m_state != State::RUN ) {
-    return false; // Activity already waiting
-  }
-  m_state = State::PAUSE;
+#if ACPP_LESSON > 3
+acpp::value_result<std::any> Activity::Impl::padReceive( const std::string &pad_name, sim::Clock::time_point time, const std::string &activity_name ) {
   auto instance = m_instance.lock();
-  auto future = Simulation::Private::activityWaitOn(
-      m_instance.lock()->owner(),
+  auto pad = m_instance.lock()->pad( pad_name );
+  if ( !pad ) {
+    return {{}, "no pad: " + pad_name};
+  }
+  
+  if ( pad->available() > 0 ) {
+    return Pad::Private::pull( pad );
+  }
+  
+  // TODO lock state
+  if ( m_state != State::RUN ) {
+    return { {}, "already waiting" }; // Activity already waiting
+  }
+  m_state = State::PAUSE;
+  auto future = Simulation::Private::activityPadReceive(
+      instance->owner(),
       m_activity.shared_from_this(),
-      signal_name,
-      instance->owner()->simtime() + timeout );
-  return future.get();
+      pad_name,
+      time );
+  auto rv = future.get();
+  if (!rv) {
+    return { {}, "receive canceled" };
+  }
+  return Pad::Private::pull( pad );
 }
+#endif // ACPP_LESSON > 3
 
-bool Activity::waitOn( const std::string &signal_name ) {
-  return impl->waitOn( signal_name );
-}
-
-bool Activity::waitOn( const std::string &signal_name, sim::Clock::duration timeout ) {
-  return impl->waitOn( signal_name, timeout );
-}
-
+#if ACPP_LESSON > 4
 acpp::value_result<std::any> Activity::Impl::padReceive( const std::string &pad_name, sim::Clock::time_point time ) {
   auto instance = m_instance.lock();
   auto pad = m_instance.lock()->pad( pad_name );
@@ -308,7 +312,19 @@ acpp::value_result<std::any> Activity::Impl::padReceive( const std::string &pad_
   }
   return Pad::Private::pull( pad );
 }
+#endif // ACPP_LESSON > 4
 
+#if ACPP_LESSON > 3
+bool Activity::Impl::padSend( const std::string &pad_name, const std::any &payload, const std::string &activity_name ) {
+  auto pad = m_instance.lock()->pad( pad_name );
+  if ( !(pad && pad->peer()) ) {
+    return false;
+  }
+  return Pad::Private::push( pad->peer(), payload );
+}
+#endif // ACPP_LESSON > 3
+
+#if ACPP_LESSON > 4
 bool Activity::Impl::padSend( const std::string &pad_name, const std::any &payload ) {
   auto pad = m_instance.lock()->pad( pad_name );
   if ( !(pad && pad->peer()) ) {
@@ -316,7 +332,21 @@ bool Activity::Impl::padSend( const std::string &pad_name, const std::any &paylo
   }
   return Pad::Private::push( pad->peer(), payload );
 }
+#endif // ACPP_LESSON > 4
 
+#if ACPP_LESSON > 3
+acpp::value_result<std::any> Activity::padReceive( const std::string &pad_name, const std::string &activity_name ) {
+  return impl->padReceive( pad_name, {}, activity_name );
+}
+acpp::value_result<std::any> Activity::padReceive( const std::string &pad_name, sim::Clock::duration timeout, const std::string &activity_name ) {
+  return impl->padReceive( pad_name, owner()->owner()->simtime() + timeout, activity_name );
+}
+bool Activity::padSend( const std::string &pad_name, const std::any &payload, const std::string &activity_name ) {
+  return impl->padSend( pad_name, payload, activity_name );
+}
+#endif // ACPP_LESSON > 3
+
+#if ACPP_LESSON > 4
 acpp::value_result<std::any> Activity::padReceive( const std::string &pad_name ) {
   return impl->padReceive( pad_name, {} );
 }
@@ -326,6 +356,7 @@ acpp::value_result<std::any> Activity::padReceive( const std::string &pad_name, 
 bool Activity::padSend( const std::string &pad_name, const std::any &payload ) {
   return impl->padSend( pad_name, payload );
 }
+#endif // ACPP_LESSON > 4
 
 
 struct Pad::Impl {

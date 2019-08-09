@@ -8,6 +8,11 @@
 namespace sim {
 namespace queuing {
 
+struct QueueMessage {
+  size_t id;
+  size_t length;
+};
+
 class SourceModel : public Model {
 public:
   SourceModel();
@@ -18,7 +23,11 @@ public:
   SourceModel &operator=( SourceModel &other ) = default;
 
   // entry point for the model
-  void startActivity( Instance &instance, Activity &activity ) override;
+  void startActivity( std::shared_ptr<Instance> instance, std::shared_ptr<Activity> activity ) override;
+  std::shared_ptr<Instance> makeInstance(
+      std::shared_ptr<Simulation> sim,
+      const std::string &name,
+      const PropertyList &parameters ) override;
 };
 
 class QueueModel : public Model {
@@ -31,7 +40,17 @@ public:
   QueueModel &operator=( QueueModel &other ) = default;
 
   // entry point for the model
-  void startActivity( Instance &instance, Activity &activity ) override;
+  void startActivity( std::shared_ptr<Instance> instance, std::shared_ptr<Activity> activity ) override;
+  std::shared_ptr<Instance> makeInstance(
+      std::shared_ptr<Simulation> sim,
+      const std::string &name,
+      const PropertyList &parameters ) override;
+
+#if ACPP_LESSON < 5
+protected:
+  void sentActivity( std::shared_ptr<Instance> instance, std::shared_ptr<Activity> activity, Pad &pad );
+  void receivedActivity( std::shared_ptr<Instance> instance, std::shared_ptr<Activity> activity, Pad &pad );
+#endif // ACPP_LESSON < 5
 };
 
 class ProcessorModel : public Model {
@@ -44,7 +63,11 @@ public:
   ProcessorModel &operator=( ProcessorModel &other ) = default;
 
   // entry point for the model
-  void startActivity( Instance &instance, Activity &activity ) override;
+  void startActivity( std::shared_ptr<Instance> instance, std::shared_ptr<Activity> activity ) override;
+  std::shared_ptr<Instance> makeInstance(
+      std::shared_ptr<Simulation> sim,
+      const std::string &name,
+      const PropertyList &parameters ) override;
 };
 
 class DelayModel : public Model {
@@ -57,7 +80,11 @@ public:
   DelayModel &operator=( DelayModel &other ) = default;
 
   // entry point for the model
-  void startActivity( Instance &instance, Activity &activity ) override;
+  void startActivity( std::shared_ptr<Instance> instance, std::shared_ptr<Activity> activity ) override;
+  std::shared_ptr<Instance> makeInstance(
+      std::shared_ptr<Simulation> sim,
+      const std::string &name,
+      const PropertyList &parameters ) override;
 };
 
 class MultiplexModel : public Model {
@@ -70,7 +97,11 @@ public:
   MultiplexModel &operator=( MultiplexModel &other ) = default;
 
   // entry point for the model
-  void startActivity( Instance &instance, Activity &activity ) override;
+  void startActivity( std::shared_ptr<Instance> instance, std::shared_ptr<Activity> activity ) override;
+  std::shared_ptr<Instance> makeInstance(
+      std::shared_ptr<Simulation> sim,
+      const std::string &name,
+      const PropertyList &parameters ) override;
 };
 
 class SinkModel : public Model {
@@ -83,7 +114,11 @@ public:
   SinkModel &operator=( SinkModel &other ) = default;
 
   // entry point for the model
-  void startActivity( Instance &instance, Activity &activity ) override;
+  void startActivity( std::shared_ptr<Instance> instance, std::shared_ptr<Activity> activity ) override;
+  std::shared_ptr<Instance> makeInstance(
+      std::shared_ptr<Simulation> sim,
+      const std::string &name,
+      const PropertyList &parameters ) override;
 };
 
 } // namespace queuing

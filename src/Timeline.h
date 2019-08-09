@@ -96,7 +96,7 @@ public:
   inline const_iterator cend() const noexcept {
     return this->c.cend();
   }
-  inline value_type take() {
+  inline value_type extract() {
     assert( !this->empty() );
     std::pop_heap( this->c.begin(), this->c.end(), this->comp );
     value_type top = std::move( this->c.back() );

@@ -9,6 +9,7 @@ project(CxxSimulator
 set(CxxSimulator_VENDOR "Aron Rubin")
 set(PROJECT_VENDOR "${CxxSimulator_VENDOR}")
 
+set(ACPP_LESSON 4)
 
 set(CMAKE_DEBUG_POSTFIX d)
 
@@ -16,7 +17,6 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_STANDARD 11)
 
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/modules")
-
 
 if(POLICY CMP0074)
   cmake_policy(SET CMP0074 NEW)
@@ -83,6 +83,8 @@ endif()
 target_link_libraries(CxxSimulator
   PUBLIC Threads::Threads
 )
+
+target_compile_definitions(CxxSimulator PUBLIC ACPP_LESSON=${ACPP_LESSON})
 
 add_executable(CxxSimulatorExec
   src/CxxSimulatorExec.cpp
