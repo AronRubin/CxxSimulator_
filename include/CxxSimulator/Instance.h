@@ -22,11 +22,9 @@ namespace sim {
 
 class Simulator;
 class Simulation;
-class Model;
-class Activity;
 class Instance;
-class Pad;
 
+#if ACPP_LESSON > 3
 class Pad : public std::enable_shared_from_this<Pad> {
 public:
   Pad( std::shared_ptr<Instance> instance, const PadSpec &spec, const std::string &name );
@@ -40,6 +38,12 @@ public:
   std::shared_ptr<Pad> peer() const;
   size_t available() const;
 
+  /**
+   * @brief Connect this pad to a peer on another instance
+   * @param instance the peer instance
+   * @param pad_name the peer pad
+   * @return success
+   */
   bool connect( std::shared_ptr<Instance> instance, const std::string &pad_name );
 
 private:
@@ -49,26 +53,43 @@ private:
 public:
   class Private;
 };
+#endif // ACPP_LESSON > 3
 
 class Activity : public std::enable_shared_from_this<Activity> {
 public:
-  enum class State : uint32_t { INIT, RUN, PAUSE, DONE };
+  using Func = std::function<void( Instance &, Activity &, const std::string &source, const std::any &payload )>;
+#if ACPP_LESSON > 4
+  enum class State : uint32_t { init, run, pause, done };
+#endif // ACPP_LESSON > 4
 
-  Activity( std::shared_ptr<Instance> instance, const ActivitySpec &spec, const std::string &name, ActivitySpec::PlainFunc &func );
-  Activity( std::shared_ptr<Instance> instance, const ActivitySpec &spec, const std::string &name, ActivitySpec::PayloadFunc &func );
-  Activity( std::shared_ptr<Instance> instance, const ActivitySpec &spec, const std::string &name, ActivitySpec::PadFunc &func );
-  
-  Activity( Activity &&other );
-  Activity &operator=( Activity &&other );
+  Activity(
+    std::shared_ptr<Instance> instance,
+    const ActivitySpec &spec,
+    const std::string &name,
+    const Func &func );
+
+  Activity( Activity &&other ) noexcept;
+  Activity &operator=( Activity &&other ) noexcept;
   ~Activity() noexcept;
 
   ActivitySpec spec() const;
+  /**
+   * @brief Invoke the activity
+   * @param source the source of the activity's invocation
+   * @param payload a payload to pass to the activity
+   */
+  void invoke( const std::string &source, const std::any &payload );
+
+#if ACPP_LESSON > 4
   State state() const;
+  void pause();
+  void done();
+#endif // ACPP_LESSON > 4
   std::shared_ptr<Instance> owner() const;
   std::string name() const;
 
   /**
-   * @brief 
+   * The following are meant for the activity itself to call
    */
 #if ACPP_LESSON > 3
   acpp::value_result<std::any> padReceive( const std::string &pad_name, const std::string &then_activity );
@@ -96,8 +117,8 @@ public:
       std::shared_ptr<Model> model,
       const std::string &name,
       const PropertyList &parameters );
-  Instance( Instance &&other );
-  Instance &operator=( Instance &&other );
+  Instance( Instance &&other ) noexcept;
+  Instance &operator=( Instance &&other ) noexcept;
   ~Instance() noexcept;
 
   std::string name() const;
@@ -113,17 +134,32 @@ public:
   std::shared_ptr<Pad> pad( const std::string &name ) const;
   
   acpp::void_result<> setParameter( const std::string &name, const acpp::unstructured_value &value );
-
+  /**
+   * @brief Request an activity to be spawned on this instance by the simulator 
+   * @param spec_name The name of the activity's spec
+   * @param name The name of the activity (must be unique amoung spawned activities for this instance)
+   * @param delay The simulation delay, if any, before spawning the activity
+   * @return acpp::void_result<> Success or error indicator
+   */
   acpp::void_result<> spawnActivity( const std::string spec_name, const std::string &name, Clock::duration delay = {} );
-
-  virtual std::shared_ptr<Activity> makeActivity( const std::string spec_name, const std::string &name );
+  /**
+   * @brief Add an activity to this instance without spawning it.
+   * @param spec_name The name of the activity's spec
+   * @param name The name of the activity (must be unique amoung spawned activities for this instance)
+   * @return std::shared_ptr<Activity> the activity added or nullptr on failure
+   */
+  std::shared_ptr<Activity> addActivity( const std::string &spec_name, const std::string &name );
+  /**
+   * @brief Extensible function for making an activity for this instance. Called by addActivity.
+   * @param spec The name of the activity's spec
+   * @param name The name of the activity
+   * @return std::shared_ptr<Activity> the activity made or nullptr on failure
+   */
+  virtual std::shared_ptr<Activity> makeActivity( const ActivitySpec &spec, const std::string &name );
 
 private:
   class Impl;
   std::unique_ptr<Impl> impl;
-  
-public:
-  class Private;
 };
 
 

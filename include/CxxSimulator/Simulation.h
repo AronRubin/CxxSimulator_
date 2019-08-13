@@ -34,19 +34,60 @@ public:
 
   /**
    * @brief Get a reference to an instance that has already spawned
+   * @param name the name of the instance to return
+   * @return std::shared_ptr<Instance>
    */
   std::shared_ptr<Instance> instance( const std::string &name ) const;
+  /**
+   * @brief Get a list of references to all spawned activities
+   * @return std::vector<std::shared_ptr<Instance>> 
+   */
   std::vector<std::shared_ptr<Instance>> instances() const;
 
+  /**
+   * @brief Get a variant of a simulation-global parameter
+   * @param name the name of the parameter to get
+   * @return acpp::unstructured_value 
+   */
   acpp::unstructured_value parameter( const std::string &name ) const;
+  /**
+   * @brief Get a simulation-global parameter as a specific type, converting if necessary
+   * @tparam T the type of parameter to return
+   * @param name the name of the parameter to get
+   * @return std::optional<T> 
+   */
   template <typename T>
   std::optional<T> parameter( const std::string &name ) const {
     return acpp::get_as<T>( parameter( name ) );
   }
+  /**
+   * @brief Set a simulation-global parameter, replacing any previous value
+   * @param name the name of the parameter to set
+   * @param value the new value of the parameter
+   * @return acpp::void_result<> A success or error indicator
+   */
   acpp::void_result<> setParameter( const std::string &name, const acpp::unstructured_value &value );
+  /**
+   * @brief Get the current simulation time
+   * @return Clock::time_point the current simulation time
+   */
   Clock::time_point simtime() const;
+  /**
+   * @brief Get the current simulation state
+   * @return State the current simulation state
+   */
   State state() const;
+  /**
+   * @brief Get the current simulation state and a pending state if the simulation is transitioning
+   * @param pending [out] the value of the last requested state
+   * @return State the value of the current simulation state
+   */
   State state( State &pending ) const;
+  /**
+   * @brief Request the simulation to transition to a new state
+   * @param state the state to transition to
+   * @return acpp::void_result<> A success or error indicator
+   */
   acpp::void_result<> setState( const State &state );
   
   /**
@@ -61,7 +102,6 @@ public:
       const std::string &name,
       const PropertyList &parameters = {},
       const Clock::time_point &time = {} );
-
   /**
    * @brief Request an activity to be spawned for an instance in the simulation
    * Note the start activity is automatically spawned with its instance.

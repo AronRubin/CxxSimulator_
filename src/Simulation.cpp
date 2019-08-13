@@ -382,10 +382,14 @@ void Simulation::Impl::handleSpawnActivity( const SimEvent &event ) {
     return;
   }
   auto iiter = m_instances.find( event.owner );
-  if ( iiter == m_instances.end() ) {
+  if (iiter == m_instances.end() || !iiter->second) {
     return;
   }
-  Instance::Private::insertActivity( iiter->second, event.spec, event.name );
+  auto activity = iiter->second->addActivity( event.spec, event.name );
+  if (!activity) {
+    return;
+  }
+  activity->invoke( event.owner, event.payload );
 }
 
 void Simulation::Impl::handleResumeActivity( const SimEvent &event ) {

@@ -55,13 +55,13 @@ struct PadSpec {
  */
 struct ActivitySpec {
   enum class Type {
+    undefined,
     plain,
-    payload,
-    pad
+#if ACPP_LESSON > 3
+    pad_receive,
+    pad_send
+#endif // ACPP_LESSON > 3
   };
-  using PlainFunc = std::function<void( Instance &, Activity & )>;
-  using PayloadFunc = std::function<void( Instance &, Activity &, std::any &payload )>;
-  using PadFunc = std::function<void( Instance &, Activity &, Pad &pad )>;
 
   ActivitySpec() = default; // this will make an invalid/null spec
   ActivitySpec(
@@ -76,7 +76,7 @@ struct ActivitySpec {
   ActivitySpec &operator=( ActivitySpec &&other ) noexcept = default;
 
   std::string name;
-  Type type;
+  Type type = Type::undefined;
 };
 
 /**

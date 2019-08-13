@@ -22,7 +22,7 @@ SourceModel::SourceModel() : Model("SourceModel") {
   addPadSpec( { "out", { PadSpec::Flag::CAN_OUTPUT }, {} } );
 }
 
-class SourceModelInstance : public Instance {
+struct SourceModelInstance : public Instance {
   SourceModelInstance(
       std::shared_ptr<Simulation> sim,
       std::shared_ptr<Model> model,
@@ -31,6 +31,9 @@ class SourceModelInstance : public Instance {
       Instance{ sim, model, name, parameters } {
     duty_cycle = parameter<double>( "duty_cycle" ).value_or( 2.0 );
   }
+
+  void start( std::shared_ptr<Instance> instance, std::shared_ptr<Activity> activity );
+
   double duty_cycle = 2.0;
 };
 
@@ -38,7 +41,8 @@ std::shared_ptr<Instance> SourceModel::makeInstance(
     std::shared_ptr<Simulation> sim,
     const std::string &name,
     const PropertyList &parameters ) {
-  return 
+  auto instance = std::make_shared<SourceModelInstance>( sim, shared_from_this(), name, parameters );
+  ActivitySpec startSpec { "start", };
 }
 
 #if ACPP_LESSON > 4

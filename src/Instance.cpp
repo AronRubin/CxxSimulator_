@@ -44,8 +44,7 @@ struct Instance::Impl {
   Impl &operator=( Impl &&other ) noexcept = default;
 
   void makeStartActivity(); // can throw on error because making invariant
-
-  bool insertActivity( const std::string &spec, const std::string &name );
+  acpp::void_result<> spawnActivity( const std::string spec_name, const std::string &name, Clock::duration delay );
 
   Instance &m_instance; // Instance owns Instance::Impl
   std::shared_ptr<Simulation> m_simulation;
@@ -59,8 +58,8 @@ struct Instance::Impl {
 };
 
 Instance::~Instance() = default;
-Instance::Instance( Instance &&other ) = default;
-Instance &Instance::operator=( Instance &&other ) = default;
+Instance::Instance( Instance &&other ) noexcept = default;
+Instance &Instance::operator=( Instance &&other ) noexcept = default;
 
 Instance::Instance(
     std::shared_ptr<Simulation> sim,
@@ -128,31 +127,28 @@ void Instance::Impl::makeStartActivity() {
   }
 }
 
-bool Instance::Impl::insertActivity( const std::string &spec_name, const std::string &name ) {
-  auto spec = m_model->activity( spec_name );
-  if ( spec.name.empty() ) {
-    return false;
+std::shared_ptr<Activity> Instance::addActivity( const std::string &spec_name, const std::string &name ) {
+  auto spec = impl->m_model->activity( spec_name );
+  if (spec.type == ActivitySpec::Type::undefined || spec.name.empty() ) {
+    return {};
   }
-  auto aiter = m_activities.find( name );
-  if ( aiter != m_activities.end() ) {
-    return false;
+  if (this->activity( name )) {
+    return {};
   }
-  auto activity = std::make_shared<Activity>( m_instance.shared_from_this(), spec, name );
+  auto activity = makeActivity( spec, name );
   if (!activity) {
-    return false;
+    return {};
   }
-  auto rv = m_activities.emplace( name, activity );
-  return rv.second;
+  auto rv = impl->m_activities.emplace( name, activity );
+  return activity;
 }
 
-bool Instance::Private::insertActivity(
-    std::shared_ptr<Instance> instance,
-    const std::string &spec,
-    const std::string &name ) {
-  if ( !instance ) {
-    return false;
-  }
-  return instance->impl->insertActivity( spec, name );
+std::shared_ptr<Activity> Instance::makeActivity( const ActivitySpec &spec, const std::string &name ) {
+  return std::make_shared<Activity>( shared_from_this(), spec, name );
+}
+
+acpp::void_result<> Instance::spawnActivity( const std::string spec_name, const std::string &name, Clock::duration delay ) {
+  return impl->spawnActivity( spec_name, name, delay );
 }
 
 struct Activity::Impl {
@@ -160,11 +156,13 @@ struct Activity::Impl {
       Activity &activity,
       std::shared_ptr<Instance> instance,
       const ActivitySpec &spec,
-      const std::string &name ) :
+      const std::string &name,
+      const Func &func ) :
       m_activity{ activity },
       m_instance{ instance },
       m_spec{ spec },
-      m_name{ name } {
+      m_name{ name },
+      m_func{ func } {
     if ( name.empty() ) {
       throw "name not supplied";
     }
@@ -173,10 +171,15 @@ struct Activity::Impl {
   std::weak_ptr<Instance> m_instance;
   ActivitySpec m_spec;
   std::string m_name;
-  State m_state = State::INIT;
+  Func m_func;
+#if ACPP_LESSON > 4
+  State m_state = State::init;
   std::thread m_worker;
   std::mutex m_state_mut;
   std::condition_variable m_state_cnd;
+#endif // ACPP_LESSON > 4
+
+  void invoke( const std::string &source, const std::any &payload );
 
 #if ACPP_LESSON > 3
   acpp::value_result<std::any> padReceive( const std::string &pad_name, sim::Clock::time_point time, const std::string &activity_name );
@@ -191,21 +194,38 @@ struct Activity::Impl {
 #endif
 };
 
-Activity::Activity( std::shared_ptr<Instance> instance, const ActivitySpec &spec, const std::string &name ) :
-    impl( new Impl{ *this, instance, spec, name } ) {
+Activity::Activity(
+  std::shared_ptr<Instance> instance,
+  const ActivitySpec &spec,
+  const std::string &name,
+  const Func &func ) :
+    impl( new Impl{ *this, instance, spec, name, func } ) {
 }
 
-Activity::~Activity() = default;
-Activity::Activity( Activity &&other ) = default;
-Activity &Activity::operator=( Activity &&other ) = default;
+Activity::~Activity() noexcept = default;
+Activity::Activity( Activity &&other ) noexcept = default;
+Activity &Activity::operator=( Activity &&other ) noexcept = default;
 
 ActivitySpec Activity::spec() const {
   return impl->m_spec;
 }
 
+void Activity::Impl::invoke( const std::string &source, const std::any &payload ) {
+  if (!m_func) {
+    return;
+  }
+  std::invoke( m_func, *m_instance.lock(), m_activity, source, payload );
+}
+
+void Activity::invoke( const std::string &source, const std::any &payload ) {
+  impl->invoke( source, payload );
+}
+
+#if ACPP_LESSON > 4
 Activity::State Activity::state() const {
   return impl->m_state;
 }
+#endif // ACPP_LESSON > 4
 
 std::shared_ptr<Instance> Activity::owner() const {
   return impl->m_instance.lock();
@@ -215,16 +235,17 @@ std::string Activity::name() const {
   return impl->m_spec.name;
 }
 
+
 #if ACPP_LESSON > 4
 void Activity::Impl::workerFunc() {
   if ( !m_spec.function ) {
     return;
   }
   std::unique_lock<std::mutex> state_lock( m_state_mut );
-  m_state_cnd.wait( state_lock, [this]() { return m_state != State::INIT && m_state != State::PAUSE; } );
-  if ( m_state == State::RUN ) {
+  m_state_cnd.wait( state_lock, [this]() { return m_state != State::init && m_state != State::pause; } );
+  if ( m_state == State::run ) {
     state_lock.unlock();
-    std::invoke( m_spec.function, *m_instance.lock(), m_activity );
+    std::invoke( m_func, *m_instance.lock(), m_activity, {}, {} );
   }
 }
 #endif // ACPP_LESSON > 4
@@ -266,6 +287,7 @@ acpp::value_result<std::any> Activity::Impl::padReceive( const std::string &pad_
     return Pad::Private::pull( pad );
   }
   
+#if ACPP_LESSON > 4
   // TODO lock state
   if ( m_state != State::RUN ) {
     return { {}, "already waiting" }; // Activity already waiting
@@ -280,6 +302,8 @@ acpp::value_result<std::any> Activity::Impl::padReceive( const std::string &pad_
   if (!rv) {
     return { {}, "receive canceled" };
   }
+#endif // ACPP_LESSON > 4
+
   return Pad::Private::pull( pad );
 }
 #endif // ACPP_LESSON > 3
